@@ -20,6 +20,7 @@ interface FileUploaderProps {
   accept?: string;
   multiple?: boolean;
   maxFiles?: number;
+  maxFileSizeMB?: number;
   initialFiles?: UploadedFile[];
   /** Called when files change — use to sync state up to parent form */
   onChange?: (files: UploadedFile[]) => void;
@@ -38,6 +39,7 @@ export default function FileUploader({
   accept = "image/*,.pdf",
   multiple = false,
   maxFiles = 10,
+  maxFileSizeMB,
   initialFiles = [],
   onChange,
   customUploadAction,
@@ -67,6 +69,22 @@ export default function FileUploader({
         variant: "destructive",
       });
       return;
+    }
+
+    if (maxFileSizeMB && maxFileSizeMB > 0) {
+      const maxBytes = maxFileSizeMB * 1024 * 1024;
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        if (file.size > maxBytes) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds ${maxFileSizeMB}MB limit.`,
+            variant: "destructive",
+          });
+          e.target.value = "";
+          return;
+        }
+      }
     }
 
     startTransition(async () => {

@@ -1,5 +1,6 @@
 -- ============================================================
--- CarZone Document URL Columns Migration
+-- ============================================================
+-- MRC Document URL Columns Migration
 -- Run this in your Supabase SQL Editor to add document URL support
 -- ============================================================
 

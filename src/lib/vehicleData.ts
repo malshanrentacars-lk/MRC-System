@@ -1,4 +1,4 @@
-// CarZone vehicle reference data
+// MRC vehicle reference data
 
 export const BRANDS = [
   { name: "Toyota", models: ["Corolla","Axio","Premio","Allion","Vitz","Aqua","Prius","Raize","CHR","Land Cruiser Prado","Land Cruiser","Rush","KDH","Hiace","Noah","Voxy","Other"] },

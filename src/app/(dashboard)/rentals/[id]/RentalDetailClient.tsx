@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Rental, Vehicle } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { activateRental, returnRental, exchangeVehicle, cancelRental } from "@/app/actions/rentals";
+import { activateRental, returnRental, exchangeVehicle, cancelRental, uploadSignedAgreement, recordRentalPayment, removeSignedAgreement } from "@/app/actions/rentals";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import StatusBadge from "@/components/shared/StatusBadge";
+import RentalActionsCard from "@/components/rentals/RentalActionsCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   CheckCircle, ArrowLeftRight, RotateCcw, XCircle,
   User, Car, FileText, ClipboardList, Activity, Shield,
-  Upload, X, Camera
+  Upload, X, Camera, Loader2
 } from "lucide-react";
 
 interface Props {
@@ -29,10 +29,14 @@ type InspectionCheck = {
 
 export default function RentalDetailClient({ rental: initial, availableVehicles }: Props) {
   const router = useRouter();
-  const [rental] = useState(initial);
+  const rental = initial;
   const [showActivate, setShowActivate] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
+  const [showAgreementViewer, setShowAgreementViewer] = useState(false);
+  const [agreementPreviewUrl, setAgreementPreviewUrl] = useState<string | null>(null);
+  const [agreementPreviewLoading, setAgreementPreviewLoading] = useState(false);
+  const agreementViewerContainerRef = useRef<HTMLDivElement | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -53,6 +57,13 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
   const [exchangeReason, setExchangeReason] = useState("");
   const [exchangeCharge, setExchangeCharge] = useState("0");
 
+  // Payment form
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [agreementUrl, setAgreementUrl] = useState(rental.signed_agreement_url ?? "");
+  const [agreementPath, setAgreementPath] = useState(rental.signed_agreement_path ?? "");
+
   // Inspection state
   const [inspection, setInspection] = useState<InspectionCheck>({
     body_damage: false, interior: false, tyres: false, engine: false,
@@ -61,6 +72,20 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
   const [inspectionImages, setInspectionImages] = useState<{ name: string; url: string }[]>([]);
   const [inspectionSaved, setInspectionSaved] = useState(false);
   const [inspectionInputKey, setInspectionInputKey] = useState(0);
+  const agreementFileInputId = `signed-agreement-upload-${rental.id}`;
+
+  const appliedRate = Number(rental.applied_rate ?? rental.daily_rate ?? 0);
+  const rentalDuration = Number(rental.rental_duration ?? rental.total_days ?? 1);
+  const baseAmount = Number(rental.subtotal ?? appliedRate * rentalDuration);
+  const extraCharges = Number(rental.additional_charges ?? 0);
+  const discount = Number(rental.discount ?? 0);
+  const finalAmount = Number(rental.total_amount ?? (baseAmount + extraCharges - discount));
+  const advancePaid = Number((rental as Rental & { amount_paid?: number }).amount_paid ?? rental.advance_paid ?? 0);
+  const securityDepositAmount = Number(rental.security_deposit_amount ?? rental.deposit ?? 0);
+  const depositApplied = rental.is_deposit_collected === false ? 0 : securityDepositAmount;
+  const netBalance = Number((finalAmount - (advancePaid + depositApplied)).toFixed(2));
+  const refundDue = netBalance < 0 ? Math.abs(netBalance) : Number(rental.refund_amount_due ?? 0);
+  const balanceDue = netBalance > 0 ? netBalance : 0;
 
   function confirmWithPassword(action: () => Promise<void>, label: string) {
     setPendingAction(() => action);
@@ -91,6 +116,149 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
       await cancelRental(rental.id);
       router.refresh();
     }, "Cancel Rental");
+  }
+
+  async function handleAgreementUpload(file: File) {
+    const result = await uploadSignedAgreement(rental.id, file) as { error?: string; url?: string; path?: string };
+    if (result.error || !result.url || !result.path) {
+      setError(result.error ?? "Upload failed");
+      return { error: result.error ?? "Upload failed" };
+    }
+    setError(null);
+    setAgreementUrl(result.url);
+    setAgreementPath(result.path);
+    router.refresh();
+    return { url: result.url, path: result.path };
+  }
+
+  async function handleAgreementDelete() {
+    if (!agreementUrl) {
+      setError('No agreement selected');
+      return;
+    }
+    const result = await removeSignedAgreement(rental.id) as { error?: string };
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setAgreementUrl("");
+    setAgreementPath("");
+    setAgreementPreviewUrl(null);
+    router.refresh();
+  }
+
+  async function openAgreementViewer() {
+    if (!agreementUrl) return;
+
+    setAgreementPreviewLoading(true);
+    setShowAgreementViewer(true);
+
+    try {
+      const response = await fetch(agreementUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to load PDF (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const previewUrl = URL.createObjectURL(blob);
+      setAgreementPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return previewUrl;
+      });
+    } catch {
+      setAgreementPreviewUrl(null);
+      setError("Could not open the PDF preview.");
+    } finally {
+      setAgreementPreviewLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (agreementPreviewUrl) URL.revokeObjectURL(agreementPreviewUrl);
+    };
+  }, [agreementPreviewUrl]);
+
+  useEffect(() => {
+    if (!showAgreementViewer || !agreementPreviewUrl) return;
+
+    let cancelled = false;
+    const container = agreementViewerContainerRef.current;
+    if (!container) return;
+
+    const renderPdf = async () => {
+      setAgreementPreviewLoading(true);
+      container.innerHTML = "";
+
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+
+        const pdf = await pdfjsLib.getDocument({ url: agreementPreviewUrl }).promise;
+        if (cancelled) return;
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+          const page = await pdf.getPage(pageNumber);
+          if (cancelled) return;
+
+          const viewport = page.getViewport({ scale: 1.5 });
+          const pageWrap = document.createElement("div");
+          pageWrap.className = "bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 mb-4";
+
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          if (!context) continue;
+
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.style.width = "100%";
+          canvas.style.height = "auto";
+          canvas.style.display = "block";
+
+          await page.render({ canvasContext: context, canvas, viewport }).promise;
+          pageWrap.appendChild(canvas);
+          container.appendChild(pageWrap);
+        }
+      } catch {
+        if (!cancelled) {
+          container.innerHTML = '<div class="w-full h-full flex items-center justify-center text-sm text-gray-500">Could not render PDF preview.</div>';
+        }
+      } finally {
+        if (!cancelled) setAgreementPreviewLoading(false);
+      }
+    };
+
+    renderPdf();
+
+    return () => {
+      cancelled = true;
+      container.innerHTML = "";
+    };
+  }, [agreementPreviewUrl, showAgreementViewer]);
+
+  async function handleRecordPayment() {
+    const amount = parseFloat(paymentAmount);
+    if (!amount || amount <= 0) {
+      setError("Enter a valid payment amount.");
+      return;
+    }
+    setError(null);
+
+    const result = await recordRentalPayment(rental.id, {
+      amount,
+      method: paymentMethod,
+      notes: paymentNotes || undefined,
+    }) as { error?: string; payment_status?: string; amount_paid?: number };
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    setPaymentAmount("");
+    setPaymentNotes("");
+    router.refresh();
   }
 
   async function handleExchange() {
@@ -161,8 +329,8 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
   return (
     <div>
       <Tabs defaultValue="details">
-        <div className="section-card overflow-hidden">
-          <div className="px-5 pt-4 flex items-center justify-between gap-4 flex-wrap border-b border-gray-100 pb-0">
+        <div className="section-card overflow-hidden bg-white border border-gray-200 shadow-sm">
+          <div className="px-5 pt-4 flex items-center justify-between gap-4 flex-wrap border-b border-gray-200 pb-0 bg-white">
             <TabsList className="border-b-0">
               <TabsTrigger value="details"><FileText className="w-3.5 h-3.5 mr-1.5 inline" />Details</TabsTrigger>
               <TabsTrigger value="inspection"><ClipboardList className="w-3.5 h-3.5 mr-1.5 inline" />Inspection</TabsTrigger>
@@ -175,118 +343,320 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
 
           {/* ── DETAILS TAB ── */}
           <TabsContent value="details" className="mt-0">
-            <div className="p-5 space-y-6">
-              {/* Rental Info */}
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Rental Information</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {[
-                    { label: "Rental #", value: rental.rental_number },
-                    { label: "Status", value: <StatusBadge status={rental.status} /> },
-                    { label: "Payment", value: <StatusBadge status={rental.payment_status} /> },
-                    { label: "Rate Type", value: (rental as any).rate_type ?? "Daily" },
-                    { label: "Pickup Date", value: formatDate(rental.start_date) },
-                    { label: "Expected Return", value: formatDate(rental.end_date) },
-                    { label: "Actual Return", value: formatDate(rental.actual_return_date) },
-                    { label: "Total Days", value: `${rental.total_days} days` },
-                    { label: "Pickup KM", value: `${rental.pickup_km?.toLocaleString() ?? 0} km` },
-                    { label: "Return KM", value: rental.return_km ? `${rental.return_km.toLocaleString()} km` : "—" },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <p className="text-xs text-gray-400 mb-0.5">{f.label}</p>
-                      <div className="text-sm font-medium text-gray-900">{f.value}</div>
-                    </div>
-                  ))}
+            <div className="p-5 bg-white">
+              {/* Prominent payment settlement banner */}
+              {netBalance === 0 ? (
+                <div className="mb-4 bg-green-50 border-l-4 border-green-500 rounded-md p-3 text-green-900">
+                  <p className="font-semibold">Payment Settled</p>
+                  <p className="text-sm text-green-700">Full payment received — no outstanding balance.</p>
                 </div>
-              </div>
-              {rental.notes && (
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Conditions & Notes</p>
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{rental.notes}</p>
+              ) : netBalance > 0 ? (
+                <div className="mb-4 bg-red-50 border-l-4 border-red-500 rounded-md p-3 text-red-900">
+                  <p className="font-semibold">Payment Due</p>
+                  <p className="text-sm text-red-700">Outstanding amount: {formatCurrency(balanceDue)}</p>
+                </div>
+              ) : (
+                <div className="mb-4 bg-purple-50 border-l-4 border-purple-500 rounded-md p-3 text-purple-900">
+                  <p className="font-semibold">Refund Pending</p>
+                  <p className="text-sm text-purple-700">Refund to customer: {formatCurrency(refundDue)}</p>
                 </div>
               )}
-
-              {/* Pricing */}
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Pricing & Payment</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    { label: "Daily Rate", value: formatCurrency(rental.daily_rate) },
-                    { label: "Subtotal", value: formatCurrency(rental.subtotal ?? 0) },
-                    { label: "Extra Charges", value: formatCurrency(rental.additional_charges) },
-                    { label: "Discount", value: formatCurrency(rental.discount) },
-                    { label: "Deposit", value: formatCurrency(rental.deposit) },
-                    { label: "Total Amount", value: <span className="font-bold text-blue-600 text-base">{formatCurrency(rental.total_amount ?? 0)}</span> },
-                  ].map(f => (
-                    <div key={f.label}>
-                      <p className="text-xs text-gray-400 mb-0.5">{f.label}</p>
-                      <div className="text-sm font-medium text-gray-900">{f.value}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Vehicle summary */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Car className="w-4 h-4 text-blue-500" />
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vehicle</p>
-                  </div>
-                  <p className="font-semibold text-gray-900">{rental.vehicle?.brand} {rental.vehicle?.model}</p>
-                  <p className="text-sm text-blue-600 font-medium">{rental.vehicle?.reg_number}</p>
-                  <p className="text-xs text-gray-500 mt-1">{rental.vehicle?.type} · {rental.vehicle?.color}</p>
-                  <StatusBadge status={rental.vehicle?.status ?? "available"} className="mt-2" />
-                </div>
-
-                {/* Customer summary */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <User className="w-4 h-4 text-blue-500" />
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
-                  </div>
-                  <p className="font-semibold text-gray-900">{rental.customer?.name}</p>
-                  <p className="text-sm text-gray-600">{rental.customer?.phone}</p>
-                  <p className="text-xs text-gray-400 mt-1">NIC: {rental.customer?.nic ?? "—"}</p>
-                  <p className="text-xs text-gray-400">License: {rental.customer?.license_number ?? "—"}</p>
-                </div>
-              </div>
-
-              {/* Exchange History */}
-              {(rental.exchanges ?? []).length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Vehicle Exchanges</p>
-                  <div className="space-y-2">
-                    {[...(rental.exchanges ?? [])]
-                      .sort((a, b) => new Date(b.exchange_date).getTime() - new Date(a.exchange_date).getTime())
-                      .map((ex, idx) => (
-                        <div key={ex.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3">
-                          {idx === 0 && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold">Current</span>}
-                          <span className="text-sm text-gray-500">{ex.old_vehicle?.reg_number}</span>
-                          <ArrowLeftRight className="w-3.5 h-3.5 text-gray-300" />
-                          <span className="text-sm font-medium text-gray-900">{ex.new_vehicle?.reg_number}</span>
-                          <span className="text-xs text-gray-400 ml-auto">{formatDate(ex.exchange_date)}</span>
-                          {ex.reason && <span className="text-xs text-gray-400">· {ex.reason}</span>}
+              <div className="details-container grid grid-cols-12 gap-6">
+                {/* Left column (Main) */}
+                <div className="col-span-12 md:col-span-8 space-y-6">
+                  <div className="bg-white rounded-lg p-5 text-gray-900 border border-gray-200 shadow-sm">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Rental Information</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {[
+                        { label: "Rental #", value: rental.rental_number },
+                        { label: "Status", value: <StatusBadge status={rental.status} className="bg-white/5" /> },
+                        { label: "Payment", value: <StatusBadge status={rental.payment_status} /> },
+                        { label: "Rate Type", value: (rental as any).rate_type ?? "Daily" },
+                        { label: "Pickup Date", value: formatDate(rental.start_date) },
+                        { label: "Expected Return", value: formatDate(rental.end_date) },
+                        { label: "Actual Return", value: rental.actual_return_date ? formatDate(rental.actual_return_date) : "—" },
+                        { label: "Total Days", value: `${rental.total_days} days` },
+                        { label: "Pickup KM", value: `${rental.pickup_km?.toLocaleString() ?? 0} km` },
+                        { label: "Return KM", value: rental.return_km ? `${rental.return_km.toLocaleString()} km` : "—" },
+                      ].map(f => (
+                        <div key={f.label}>
+                          <p className="text-[11px] text-gray-500 mb-0.5">{f.label}</p>
+                          <div className="text-sm font-semibold text-gray-900">{f.value}</div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="bg-white rounded-lg p-5 text-gray-900 border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Pricing & Payment</p>
+                      <StatusBadge
+                        status={
+                          netBalance < 0 ? "refund_pending" : netBalance > 0 ? "balance_due" : "paid"
+                        }
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Base</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(appliedRate)} x {rentalDuration} day(s)</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{formatCurrency(baseAmount)}</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Collections</p>
+                        <p className="text-sm font-semibold text-gray-900">Advance {formatCurrency(advancePaid)}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Deposit {formatCurrency(depositApplied)}</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p className="text-[11px] text-gray-500">Final Amount</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(finalAmount)}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">After charges & discounts</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2 text-sm">
+                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Settlement Ledger</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Final Amount</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(finalAmount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Advance Paid</span>
+                        <span className="font-medium text-emerald-700">- {formatCurrency(advancePaid)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Security Deposit Applied</span>
+                        <span className="font-medium text-emerald-700">- {formatCurrency(depositApplied)}</span>
+                      </div>
+                      {(extraCharges > 0 || discount > 0) && (
+                        <div className="pt-1 border-t border-gray-200 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Extra Charges</span>
+                            <span className="text-gray-700">+ {formatCurrency(extraCharges)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Discount</span>
+                            <span className="text-gray-700">- {formatCurrency(discount)}</span>
+                          </div>
+                        </div>
+                      )}
+                      <div className="pt-2 mt-2 border-t border-gray-300 flex items-center justify-between">
+                        <span className="font-semibold text-gray-900">Net Balance</span>
+                        <span className={`font-bold ${netBalance < 0 ? "text-purple-700" : netBalance > 0 ? "text-red-600" : "text-green-700"}`}>
+                          {netBalance < 0 ? `Refund ${formatCurrency(refundDue)}` : netBalance > 0 ? `Due ${formatCurrency(balanceDue)}` : "Settled"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Vehicle summary */}
+                    <div className="bg-white rounded-xl p-4 text-gray-900 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Car className="w-4 h-4 text-blue-600" />
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vehicle</p>
+                      </div>
+                      <p className="font-semibold text-gray-900">{rental.vehicle?.brand} {rental.vehicle?.model}</p>
+                      <p className="text-sm text-blue-600 font-medium">{rental.vehicle?.reg_number}</p>
+                      <p className="text-xs text-gray-500 mt-1">{rental.vehicle?.type} · {rental.vehicle?.color}</p>
+                      <StatusBadge status={rental.vehicle?.status ?? "available"} className="mt-2" />
+                    </div>
+
+                    {/* Customer summary */}
+                    <div className="bg-white rounded-xl p-4 text-gray-900 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <User className="w-4 h-4 text-blue-600" />
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
+                      </div>
+                      <p className="font-semibold text-gray-900">{rental.customer?.name}</p>
+                      <p className="text-sm text-gray-700">{rental.customer?.phone}</p>
+                      <p className="text-xs text-gray-500 mt-1">NIC: {rental.customer?.nic ?? "—"}</p>
+                      <p className="text-xs text-gray-500">License: {rental.customer?.license_number ?? "—"}</p>
+                    </div>
+                  </div>
+
+                  {/* Exchange History */}
+                  {(rental.exchanges ?? []).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Vehicle Exchanges</p>
+                      <div className="space-y-2">
+                        {[...(rental.exchanges ?? [])]
+                          .sort((a, b) => new Date(b.exchange_date).getTime() - new Date(a.exchange_date).getTime())
+                          .map((ex, idx) => (
+                            <div key={ex.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3 text-gray-900 border border-gray-200">
+                              {idx === 0 && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">Current</span>}
+                              <span className="text-sm text-gray-500">{ex.old_vehicle?.reg_number}</span>
+                              <ArrowLeftRight className="w-3.5 h-3.5 text-gray-400" />
+                              <span className="text-sm font-medium text-gray-900">{ex.new_vehicle?.reg_number}</span>
+                              <span className="text-xs text-gray-500 ml-auto">{formatDate(ex.exchange_date)}</span>
+                              {ex.reason && <span className="text-xs text-gray-500">· {ex.reason}</span>}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Agreement Summary */}
+                  <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-white">
+                    <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Agreement</p>
+                    <p className="text-sm text-gray-700">
+                      Rental <strong>{rental.rental_number}</strong> for <strong>{rental.customer?.name}</strong> —
+                      vehicle <strong>{rental.vehicle?.reg_number}</strong> from <strong>{formatDate(rental.start_date)}</strong> to <strong>{formatDate(rental.end_date)}</strong>.
+                      Total payable: <strong>{formatCurrency(rental.total_amount ?? 0)}</strong>.
+                      Deposit held: <strong>{formatCurrency(rental.deposit)}</strong>.
+                    </p>
+                    <a href={`/agreements/${rental.id}`} target="_blank" rel="noopener"
+                      className="inline-flex items-center gap-1.5 mt-3 text-xs text-purple-600 hover:underline font-medium">
+                      <FileText className="w-3.5 h-3.5" /> View Full Agreement
+                    </a>
                   </div>
                 </div>
-              )}
 
-              {/* Agreement Summary */}
-              <div className="border border-dashed border-blue-200 rounded-xl p-4 bg-blue-50/40">
-                <p className="text-xs font-semibold text-blue-500 uppercase tracking-wide mb-2">Agreement</p>
-                <p className="text-sm text-gray-700">
-                  Rental <strong>{rental.rental_number}</strong> for <strong>{rental.customer?.name}</strong> —
-                  vehicle <strong>{rental.vehicle?.reg_number}</strong> from{" "}
-                  <strong>{formatDate(rental.start_date)}</strong> to <strong>{formatDate(rental.end_date)}</strong>.
-                  Total payable: <strong>{formatCurrency(rental.total_amount ?? 0)}</strong>.
-                  Deposit held: <strong>{formatCurrency(rental.deposit)}</strong>.
-                </p>
-                <a href={`/agreements/${rental.id}`} target="_blank" rel="noopener"
-                  className="inline-flex items-center gap-1.5 mt-3 text-xs text-blue-600 hover:underline font-medium">
-                  <FileText className="w-3.5 h-3.5" /> View Full Agreement
-                </a>
+                {/* Right column (Sidebar) */}
+                <div className="col-span-12 md:col-span-4 space-y-4">
+                  <RentalActionsCard rental={rental} availableVehicles={availableVehicles} />
+
+                  <div className="bg-white rounded-lg p-4 text-gray-900 border border-gray-200 shadow-sm">
+                    <p className="text-xs text-gray-500 font-medium mb-3">Record Payment</p>
+                    <div className="space-y-2">
+                      <input
+                        placeholder="Amount (LKR)"
+                        className="form-input bg-white text-gray-900 border border-gray-300"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        inputMode="decimal"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                      />
+                      <select
+                        className="form-select bg-white text-gray-900 border border-gray-300"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                      >
+                        <option>Cash</option>
+                        <option>Card</option>
+                        <option>Bank Transfer</option>
+                      </select>
+                      <textarea
+                        className="form-input bg-white text-gray-900 resize-none border border-gray-300"
+                        rows={2}
+                        placeholder="Payment notes (optional)"
+                        value={paymentNotes}
+                        onChange={(e) => setPaymentNotes(e.target.value)}
+                      />
+                      <button onClick={handleRecordPayment} className="w-full bg-blue-600 text-white rounded py-2 hover:bg-blue-700">
+                        Record Payment
+                      </button>
+                    </div>
+                  </div>
+
+                  {rental.payment_status === "paid" && (
+                    <div className="bg-green-50 border-l-4 border-green-500 rounded-md p-3 text-green-900">
+                      <p className="font-medium">Payment Settled</p>
+                      <p className="text-sm text-green-700">Full payment received on {formatDate((rental as any).last_payment_date ?? rental.actual_return_date ?? rental.start_date)}</p>
+                    </div>
+                  )}
+
+                  <div className="bg-white rounded-lg p-4 text-gray-900 border border-gray-200 shadow-sm">
+                    <p className="text-xs text-gray-500 font-medium mb-2">Info</p>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li className="flex items-start justify-between gap-3">
+                        <span>Rental ID:</span>
+                        <span className="text-gray-900 text-right break-all">{rental.id}</span>
+                      </li>
+                      <li className="flex items-center justify-between gap-3">
+                        <span>Status:</span>
+                        <StatusBadge status={rental.status} />
+                      </li>
+                      <li className="flex items-center justify-between gap-3">
+                        <span>Payment:</span>
+                        <StatusBadge status={rental.payment_status} />
+                      </li>
+                      <li className="flex items-center justify-between gap-3">
+                        <span>Created At:</span>
+                        <span className="text-gray-900 text-right">{formatDate(rental.created_at ?? rental.start_date)}</span>
+                      </li>
+                      <li className="flex items-center justify-between gap-3">
+                        <span>Last Updated:</span>
+                        <span className="text-gray-900 text-right">{formatDate(rental.updated_at ?? rental.start_date)}</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 text-gray-900 border border-gray-200 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-gray-500 font-medium">Signed Agreement</p>
+                      <label htmlFor={agreementFileInputId} className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 cursor-pointer ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
+                        {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        Upload PDF
+                      </label>
+                      <input
+                        id={agreementFileInputId}
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        className="hidden"
+                        disabled={isPending}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          const lowerName = file.name.toLowerCase();
+                          const isPdf = file.type === "application/pdf" || lowerName.endsWith(".pdf");
+                          if (!isPdf) {
+                            setError("Only PDF files are allowed.");
+                            return;
+                          }
+                          if (file.size > 5 * 1024 * 1024) {
+                            setError("File size must be 5MB or less.");
+                            return;
+                          }
+                          await handleAgreementUpload(file);
+                        }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-500">Only PDF files are allowed. Maximum file size: 5MB.</p>
+                    {error && <p className="text-xs text-red-600">{error}</p>}
+                    {agreementUrl ? (
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-5 h-5 text-red-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 text-sm">Signed Agreement PDF</p>
+                            <p className="text-xs text-gray-500 truncate">{agreementPath || "Uploaded file"}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openAgreementViewer();
+                            }}
+                            className="w-full inline-flex items-center justify-center rounded py-2 bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium"
+                          >
+                            View PDF
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleAgreementDelete()}
+                            className="w-full inline-flex items-center justify-center rounded py-2 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium"
+                          >
+                            Delete PDF
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500">
+                        No signed agreement uploaded yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -626,6 +996,45 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
         description="Enter your password to confirm this action."
         onConfirm={async () => { if (pendingAction) await pendingAction(); }}
       />
+
+      {showAgreementViewer && agreementUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-5xl h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Signed Agreement PDF</p>
+                <p className="text-xs text-gray-500 truncate max-w-[60vw]">{agreementPath || agreementUrl}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={agreementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-100"
+                >
+                  Open in new tab
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowAgreementViewer(false)}
+                  className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-gray-100 overflow-auto p-4">
+              {agreementPreviewLoading && !agreementPreviewUrl ? (
+                <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
+                  Loading PDF preview...
+                </div>
+              ) : (
+                <div ref={agreementViewerContainerRef} className="mx-auto max-w-4xl" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -26,7 +26,7 @@ export default function LoginPage() {
           <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
             <Car className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">CarZone</h1>
+          <h1 className="text-2xl font-bold text-gray-900">MRC</h1>
           <p className="text-sm text-gray-500 mt-1">Fleet Management System</p>
         </div>
 
@@ -95,7 +95,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          CarZone &copy; {new Date().getFullYear()} — Staff Access Only
+          MRC &copy; {new Date().getFullYear()} — Staff Access Only
         </p>
       </div>
     </div>

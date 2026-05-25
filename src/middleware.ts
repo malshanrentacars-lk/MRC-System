@@ -4,6 +4,14 @@ import type { NextRequest } from 'next/server';
 const SESSION_COOKIE = 'cz_session';
 const PUBLIC_PATHS = ['/login', '/api/auth'];
 
+function decodeSessionCookie(value: string) {
+  if (typeof atob === 'function') {
+    return atob(value);
+  }
+
+  return Buffer.from(value, 'base64').toString('utf-8');
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -23,7 +31,7 @@ export function middleware(request: NextRequest) {
 
   // Try to decode session
   try {
-    const decoded = Buffer.from(sessionCookie.value, 'base64').toString('utf-8');
+    const decoded = decodeSessionCookie(sessionCookie.value);
     JSON.parse(decoded); // validate JSON
   } catch {
     const loginUrl = new URL('/login', request.url);

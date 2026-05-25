@@ -70,7 +70,7 @@ export default function TodoWidget({ todos: initialTodos }: TodoWidgetProps) {
       <div className="flex-1 overflow-y-auto max-h-[360px] custom-scrollbar">
         {/* Add new task */}
         {adding && (
-          <div className="px-5 py-3 border-b border-gray-100 flex gap-2">
+          <div className="px-5 py-3 border-b border-border flex gap-2">
             <input
               type="text"
               value={newTask}
@@ -93,7 +93,7 @@ export default function TodoWidget({ todos: initialTodos }: TodoWidgetProps) {
 
         {/* Active todos */}
         {active.length === 0 && (
-          <div className="px-5 py-8 text-center text-sm text-gray-400">
+          <div className="px-5 py-8 text-center text-sm text-muted-foreground">
             All caught up! No pending tasks 🎉
           </div>
         )}
@@ -101,15 +101,15 @@ export default function TodoWidget({ todos: initialTodos }: TodoWidgetProps) {
           const cfg = typeConfig[todo.type] ?? typeConfig.custom;
           const Icon = cfg.icon;
           return (
-            <div key={todo.id} className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50 group transition-colors border-b border-gray-50 last:border-0">
+            <div key={todo.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/50 group transition-colors border-b border-border last:border-0">
               <button onClick={() => handleToggle(todo.id, todo.is_done)} className="mt-0.5 flex-shrink-0">
-                <Square className="w-4 h-4 text-gray-300 hover:text-blue-500 transition-colors" />
+                <Square className="w-4 h-4 text-muted-foreground hover:text-blue-500 transition-colors" />
               </button>
               <Icon className={cn("w-4 h-4 mt-0.5 flex-shrink-0", cfg.color)} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-700">{todo.title}</p>
+                <p className="text-sm text-foreground">{todo.title}</p>
                 {todo.due_date && (
-                  <p className="text-xs text-gray-400 mt-0.5">{formatDate(todo.due_date)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{formatDate(todo.due_date)}</p>
                 )}
               </div>
               <button onClick={() => handleDelete(todo.id)}
@@ -122,14 +122,14 @@ export default function TodoWidget({ todos: initialTodos }: TodoWidgetProps) {
 
         {/* Done todos - collapsed */}
         {done.length > 0 && (
-          <div className="border-t border-gray-100 mt-1">
-            <p className="px-5 py-2 text-xs text-gray-400 font-medium">Completed ({done.length})</p>
+          <div className="border-t border-border mt-1">
+            <p className="px-5 py-2 text-xs text-muted-foreground font-medium">Completed ({done.length})</p>
             {done.slice(0, 3).map((todo) => (
-              <div key={todo.id} className="flex items-center gap-3 px-5 py-2 hover:bg-gray-50 group">
+              <div key={todo.id} className="flex items-center gap-3 px-5 py-2 hover:bg-muted/50 group">
                 <button onClick={() => handleToggle(todo.id, todo.is_done)} className="flex-shrink-0">
                   <CheckSquare className="w-4 h-4 text-blue-400" />
                 </button>
-                <p className="text-sm text-gray-400 line-through flex-1 min-w-0 truncate">{todo.title}</p>
+                <p className="text-sm text-muted-foreground line-through flex-1 min-w-0 truncate">{todo.title}</p>
                 <button onClick={() => handleDelete(todo.id)}
                   className="opacity-0 group-hover:opacity-100 text-red-400">
                   <Trash2 className="w-3.5 h-3.5" />

@@ -2,8 +2,8 @@ export type UserRole = 'admin' | 'employee';
 export type VehicleStatus = 'available' | 'rented' | 'booked' | 'in_garage';
 export type VehicleType = 'Sedan' | 'Hatchback' | 'SUV' | 'Van' | 'Pickup' | 'Bus' | 'Other';
 export type VehicleSource = 'Company' | 'Supplier';
-export type RentalStatus = 'booked' | 'active' | 'returned' | 'cancelled' | 'overdue';
-export type PaymentStatus = 'pending' | 'partial' | 'paid';
+export type RentalStatus = 'booked' | 'active' | 'paused' | 'returned' | 'cancelled' | 'overdue' | 'completed' | 'extended' | 'swapped';
+export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'balance_due' | 'refund_pending';
 export type TodoType = 'rental_end' | 'service_due' | 'service_overdue' | 'booked_pickup' | 'custom';
 
 export interface User {
@@ -172,20 +172,45 @@ export interface Rental {
   pickup_km: number;
   return_km?: number;
   daily_rate: number;
+  applied_rate?: number;
+  rental_duration?: number;
   total_days: number;
   subtotal?: number;
   additional_charges: number;
   discount: number;
   total_amount?: number;
   deposit: number;
+  advance_paid?: number;
+  security_deposit_amount?: number;
+  is_deposit_collected?: boolean;
+  km_limit?: number;
+  extra_km_rate?: number;
+  extra_day_rate?: number;
+  refund_amount_due?: number;
   status: RentalStatus;
   payment_status: PaymentStatus;
+  amount_paid?: number;
+  payment_method?: string;
+  payment_notes?: string;
+  last_payment_date?: string;
   pickup_notes?: string;
   return_notes?: string;
   notes?: string;
+  signed_agreement_url?: string;
+  signed_agreement_path?: string;
+  agreements?: SignedAgreement[];
   exchanges?: VehicleExchange[];
   created_at: string;
   updated_at: string;
+}
+
+export interface SignedAgreement {
+  id: string;
+  rental_id: string;
+  file_name: string;
+  storage_url: string;
+  storage_path: string;
+  uploaded_at: string;
 }
 
 export interface VehicleExchange {
@@ -216,6 +241,39 @@ export interface Todo {
   created_by?: string;
   created_at: string;
   updated_at: string;
+}
+
+export type AttendanceStatus = 'On Time' | 'Late' | 'Absent';
+
+export interface AttendanceRecord {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  employee_email?: string | null;
+  check_in?: string | null;
+  check_out?: string | null;
+  status: AttendanceStatus;
+  working_hours?: string | null;
+  created_at: string;
+}
+
+export interface AttendanceSummary {
+  present: number;
+  late: number;
+  absent: number;
+  working: number;
+  totalEmployees: number;
+}
+
+export interface AttendanceReportRow {
+  employee_id: string;
+  employee_name: string;
+  employee_email?: string | null;
+  total: number;
+  present: number;
+  late: number;
+  absent: number;
+  working: number;
 }
 
 // Dashboard types

@@ -28,6 +28,16 @@ ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS insurance_path TEXT;
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS service_tag_url TEXT;
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS service_tag_path TEXT;
 
+-- Add signed agreement columns to rentals
+ALTER TABLE rentals ADD COLUMN IF NOT EXISTS signed_agreement_url TEXT;
+ALTER TABLE rentals ADD COLUMN IF NOT EXISTS signed_agreement_path TEXT;
+
+-- Add rental payment tracking columns
+ALTER TABLE rentals ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(12,2) DEFAULT 0;
+ALTER TABLE rentals ADD COLUMN IF NOT EXISTS payment_method TEXT;
+ALTER TABLE rentals ADD COLUMN IF NOT EXISTS payment_notes TEXT;
+ALTER TABLE rentals ADD COLUMN IF NOT EXISTS last_payment_date DATE;
+
 -- Add eco_test_expiry to vehicles (if not already present via initial schema)
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS eco_test_expiry DATE;
 

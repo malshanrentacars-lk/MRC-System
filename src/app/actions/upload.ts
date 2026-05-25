@@ -42,6 +42,16 @@ export async function uploadAsset(bucket: string, folder: string, file: File) {
 
   const fileExt = file.name.split('.').pop();
   const filePath = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+  const createOptions = bucket === 'signed-agreements'
+    ? {
+        public: true,
+        fileSizeLimit: 5 * 1024 * 1024,
+        allowedMimeTypes: ['application/pdf'],
+      }
+    : {
+        public: true,
+        fileSizeLimit: 10485760,
+      };
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(bucket)
@@ -53,10 +63,7 @@ export async function uploadAsset(bucket: string, folder: string, file: File) {
       uploadError.message.includes('bucket') ||
       uploadError.message.includes('not found')
     ) {
-      const { error: createError } = await supabaseAdmin.storage.createBucket(bucket, {
-        public: true,
-        fileSizeLimit: 10485760,
-      });
+      const { error: createError } = await supabaseAdmin.storage.createBucket(bucket, createOptions);
       if (createError && !createError.message.includes('already exists')) {
         return { error: `Bucket error: ${createError.message}` };
       }
@@ -70,7 +77,14 @@ export async function uploadAsset(bucket: string, folder: string, file: File) {
   }
 
   const { data: urlData } = supabaseAdmin.storage.from(bucket).getPublicUrl(filePath);
-  return { success: true, url: urlData.publicUrl, path: filePath };
+  // If bucket is private, getPublicUrl may not be accessible. Create a long-lived signed URL as fallback.
+  try {
+    const { data: signed } = await supabaseAdmin.storage.from(bucket).createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
+    const finalUrl = signed?.signedUrl ?? urlData.publicUrl;
+    return { success: true, url: finalUrl, path: filePath };
+  } catch {
+    return { success: true, url: urlData.publicUrl, path: filePath };
+  }
 }
 
 export async function deleteAsset(bucket: string, path: string) {

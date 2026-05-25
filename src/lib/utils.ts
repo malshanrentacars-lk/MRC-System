@@ -1,10 +1,20 @@
 import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { format, differenceInDays, isPast, isToday, addDays } from 'date-fns';
 import { RateTier } from '@/types';
 
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function formatDateParts(date: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  return clsx(inputs);
 }
 
 export function formatCurrency(amount: number, currency = 'LKR'): string {
@@ -14,7 +24,7 @@ export function formatCurrency(amount: number, currency = 'LKR'): string {
 export function formatDate(date: string | Date | undefined | null): string {
   if (!date) return '—';
   try {
-    return format(new Date(date), 'dd MMM yyyy');
+    return formatDateParts(new Date(date));
   } catch {
     return '—';
   }
@@ -23,28 +33,37 @@ export function formatDate(date: string | Date | undefined | null): string {
 export function formatDateShort(date: string | Date | undefined | null): string {
   if (!date) return '—';
   try {
-    return format(new Date(date), 'yyyy-MM-dd');
+    const value = new Date(date);
+    return value.toISOString().slice(0, 10);
   } catch {
     return '—';
   }
 }
 
 export function daysBetween(start: string | Date, end: string | Date): number {
-  return differenceInDays(new Date(end), new Date(start));
+  const startDay = startOfDay(new Date(start));
+  const endDay = startOfDay(new Date(end));
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.round((endDay.getTime() - startDay.getTime()) / msPerDay);
 }
 
 export function isOverdue(endDate: string): boolean {
-  return isPast(new Date(endDate)) && !isToday(new Date(endDate));
+  const date = startOfDay(new Date(endDate));
+  const today = startOfDay(new Date());
+  return date < today;
 }
 
 export function isDueToday(date: string): boolean {
-  return isToday(new Date(date));
+  const target = startOfDay(new Date(date));
+  const today = startOfDay(new Date());
+  return target.getTime() === today.getTime();
 }
 
 export function isDueSoon(date: string, days = 3): boolean {
   const target = new Date(date);
-  const soon = addDays(new Date(), days);
-  return target <= soon && !isPast(target);
+  const soon = new Date();
+  soon.setDate(soon.getDate() + days);
+  return target <= soon && !isOverdue(date);
 }
 
 export function calculateRentalAmount(
@@ -73,7 +92,7 @@ export function calculateRentalAmount(
 
 export function isServiceDue(vehicle: { current_km: number; next_service_km: number; next_service_date?: string | null }): boolean {
   if (vehicle.current_km >= vehicle.next_service_km) return true;
-  if (vehicle.next_service_date && isPast(new Date(vehicle.next_service_date))) return true;
+  if (vehicle.next_service_date && isOverdue(vehicle.next_service_date)) return true;
   return false;
 }
 
@@ -88,9 +107,13 @@ export function getStatusColor(status: string): string {
     available: 'badge-available',
     rented: 'badge-rented',
     active: 'badge-active',
+    paused: 'badge-in-garage',
     booked: 'badge-booked',
     in_garage: 'badge-in-garage',
     returned: 'badge-returned',
+    completed: 'badge-returned',
+    extended: 'badge-booked',
+    swapped: 'badge-rented',
     overdue: 'badge-overdue',
     cancelled: 'badge-cancelled',
   };

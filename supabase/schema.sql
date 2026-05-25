@@ -1,5 +1,5 @@
 -- ============================================================
--- CarZone Database Schema for Supabase
+-- MRC Database Schema for Supabase
 -- Run this in your Supabase SQL Editor
 -- ============================================================
 
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS company_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  company_name TEXT NOT NULL DEFAULT 'CarZone',
+  company_name TEXT NOT NULL DEFAULT 'MRC',
   address TEXT,
   phone TEXT,
   email TEXT,
@@ -170,9 +170,15 @@ CREATE TABLE IF NOT EXISTS rentals (
   deposit NUMERIC(12,2) DEFAULT 0,
   status TEXT DEFAULT 'booked' CHECK (status IN ('booked', 'active', 'returned', 'cancelled', 'overdue')),
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'partial', 'paid')),
+  amount_paid NUMERIC(12,2) DEFAULT 0,
+  payment_method TEXT,
+  payment_notes TEXT,
+  last_payment_date DATE,
   pickup_notes TEXT,
   return_notes TEXT,
   notes TEXT,
+  signed_agreement_url TEXT,
+  signed_agreement_path TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -301,12 +307,12 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('company-assets', 'compan
 -- Admin user: amil / Admin@1234
 -- bcrypt hash of 'Admin@1234' with cost 10
 INSERT INTO users (username, full_name, email, password_hash, role) VALUES
-('amil', 'Amil Admin', 'amil@carzone.lk', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
+('amil', 'Amil Admin', 'amil@mrc.lk', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
 ON CONFLICT (username) DO NOTHING;
 
 -- Company settings
 INSERT INTO company_settings (company_name, address, phone, email, service_interval_km, currency)
-VALUES ('CarZone', 'Colombo 03, Sri Lanka', '+94 11 234 5678', 'info@carzone.lk', 5000, 'LKR')
+VALUES ('MRC', 'Colombo 03, Sri Lanka', '+94 11 234 5678', 'info@mrc.lk', 5000, 'LKR')
 ON CONFLICT DO NOTHING;
 
 -- Sample supplier

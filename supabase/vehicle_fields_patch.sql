@@ -1,4 +1,4 @@
--- CarZone Schema Update: New vehicle fields
+-- MRC Schema Update: New vehicle fields
 -- Run this in Supabase SQL Editor
 
 ALTER TABLE vehicles

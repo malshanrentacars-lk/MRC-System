@@ -1,4 +1,4 @@
-# 🚗 CarZone — Fleet Management System
+# 🚗 MRC — Fleet Management System
 
 A modern, staff-only car rental management system built with **Next.js 15**, **TypeScript**, **Tailwind CSS**, and **Supabase**.
 
@@ -127,4 +127,4 @@ src/
 
 ---
 
-Made for **CarZone**, Colombo 🇱🇰
+Made for **MRC**, Colombo 🇱🇰

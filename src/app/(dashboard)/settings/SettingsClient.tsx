@@ -36,9 +36,9 @@ export default function SettingsClient({ settings }: { settings: CompanySettings
       </div>
       <form onSubmit={handleSubmit} className="p-5 space-y-4">
         {[
-          { name: "company_name", label: "Company Name", required: true, defaultValue: settings?.company_name ?? "CarZone", placeholder: "e.g. CarZone Rentals" },
+          { name: "company_name", label: "Company Name", required: true, defaultValue: settings?.company_name ?? "MRC", placeholder: "e.g. MRC Rentals" },
           { name: "phone", label: "Phone", defaultValue: settings?.phone, placeholder: "e.g. +94 11 123 4567" },
-          { name: "email", label: "Email", type: "email", defaultValue: settings?.email, placeholder: "e.g. info@carzone.lk" },
+          { name: "email", label: "Email", type: "email", defaultValue: settings?.email, placeholder: "e.g. info@mrc.lk" },
           { name: "address", label: "Address", defaultValue: settings?.address, placeholder: "e.g. No. 10, Union Place, Colombo 02" },
         ].map(f => (
           <div key={f.name}>

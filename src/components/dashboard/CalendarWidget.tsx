@@ -55,20 +55,20 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
   const selectedEvents = selectedDay ? getEvents(selectedDay, rentals, vehicles) : [];
 
   return (
-    <div className="section-card">
+    <div className="section-card shadow-sm" suppressHydrationWarning>
       <div className="section-card-header">
         <h3 className="section-card-title flex items-center gap-2">
           <Calendar className="w-4 h-4 text-blue-500" /> Rental Calendar
         </h3>
         <div className="flex items-center gap-2">
-          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 rounded hover:bg-gray-100 transition-colors">
-            <ChevronLeft className="w-4 h-4 text-gray-500" />
+          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
           </button>
-          <span className="text-sm font-semibold text-gray-800 w-32 text-center">
+          <span className="text-sm font-semibold text-foreground w-32 text-center">
             {format(currentMonth, "MMMM yyyy")}
           </span>
-          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 rounded hover:bg-gray-100 transition-colors">
-            <ChevronRight className="w-4 h-4 text-gray-500" />
+          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -77,7 +77,7 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-2">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="text-center text-xs font-semibold text-gray-400 py-2">{d}</div>
+            <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
           ))}
         </div>
 
@@ -94,21 +94,21 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
                 key={day.toISOString()}
                 onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? new Date(0)) ? null : day)}
                 className={cn(
-                  "flex flex-col items-center py-2 px-1 rounded-xl transition-all min-h-[52px] w-full",
-                  today && !selected && "bg-blue-600 text-white",
-                  selected && "bg-blue-100 ring-2 ring-blue-400",
-                  !today && !selected && "hover:bg-gray-50",
+                  "flex flex-col items-center justify-start py-2 px-1 rounded-xl transition-all min-h-[58px] w-full border border-transparent",
+                  today && !selected && "bg-blue-600 text-white shadow-sm",
+                  selected && "bg-blue-50 dark:bg-blue-500/20 ring-2 ring-blue-300 dark:ring-blue-400/40 border-blue-100 dark:border-blue-400/40",
+                  !today && !selected && "hover:bg-muted/60 hover:border-border",
                 )}
               >
-                <span className={cn("text-sm font-semibold", today && !selected ? "text-white" : "text-gray-800")}>
+                <span className={cn("text-sm font-semibold", today && !selected ? "text-white" : "text-foreground")}>
                   {format(day, "d")}
                 </span>
                 {events.length > 0 && (
                   <div className="flex gap-0.5 mt-1 flex-wrap justify-center">
                     {events.slice(0, 3).map((e, i) => (
-                      <div key={i} className={cn("w-1.5 h-1.5 rounded-full", e.color, today && !selected && "opacity-60")} />
+                      <div key={i} className={cn("w-1.5 h-1.5 rounded-full", e.color, today && !selected && "opacity-70")} />
                     ))}
-                    {events.length > 3 && <span className="text-[9px] text-gray-400">+{events.length - 3}</span>}
+                    {events.length > 3 && <span className="text-[9px] text-muted-foreground">+{events.length - 3}</span>}
                   </div>
                 )}
               </button>
@@ -118,22 +118,22 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
 
         {/* Selected day events */}
         {selectedDay && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
               {format(selectedDay, "EEEE, MMMM d")}
             </p>
             {selectedEvents.length === 0 ? (
-              <p className="text-sm text-gray-400">No events on this day</p>
+              <p className="text-sm text-muted-foreground">No events on this day</p>
             ) : (
               <div className="space-y-1.5">
                 {selectedEvents.map((e, i) => (
                   e.link ? (
-                    <Link key={i} href={e.link} className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors">
+                    <Link key={i} href={e.link} className="flex items-center gap-2 text-sm text-foreground hover:text-blue-600 transition-colors">
                       <div className={cn("w-2 h-2 rounded-full flex-shrink-0", e.color)} />
                       {e.label}
                     </Link>
                   ) : (
-                    <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                    <div key={i} className="flex items-center gap-2 text-sm text-foreground">
                       <div className={cn("w-2 h-2 rounded-full flex-shrink-0", e.color)} />
                       {e.label}
                     </div>
@@ -146,20 +146,20 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
 
         {/* Month event list */}
         {monthEvents.length > 0 && !selectedDay && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">This Month</p>
-            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">This Month</p>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
               {monthEvents.map((e, i) => (
                 e.link ? (
-                  <Link key={i} href={e.link} className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors">
+                  <Link key={i} href={e.link} className="flex items-center gap-2 text-sm text-foreground hover:text-blue-600 transition-colors">
                     <div className={cn("w-2 h-2 rounded-full flex-shrink-0", e.color)} />
-                    <span className="text-gray-400 text-xs w-10 flex-shrink-0">{format(e.date, "d MMM")}</span>
+                    <span className="text-muted-foreground text-xs w-10 flex-shrink-0">{format(e.date, "d MMM")}</span>
                     {e.label}
                   </Link>
                 ) : (
-                  <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                  <div key={i} className="flex items-center gap-2 text-sm text-foreground">
                     <div className={cn("w-2 h-2 rounded-full flex-shrink-0", e.color)} />
-                    <span className="text-gray-400 text-xs w-10 flex-shrink-0">{format(e.date, "d MMM")}</span>
+                    <span className="text-muted-foreground text-xs w-10 flex-shrink-0">{format(e.date, "d MMM")}</span>
                     {e.label}
                   </div>
                 )
@@ -169,7 +169,7 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
         )}
 
         {/* Legend */}
-        <div className="flex items-center gap-6 mt-4 pt-3 border-t border-gray-100">
+        <div className="flex items-center gap-6 mt-4 pt-3 border-t border-border flex-wrap">
           {[
             { color: "bg-blue-500", label: "Return Due" },
             { color: "bg-amber-500", label: "Pickup" },
@@ -177,7 +177,7 @@ export default function CalendarWidget({ rentals, vehicles }: CalendarWidgetProp
           ].map(l => (
             <div key={l.label} className="flex items-center gap-1.5">
               <div className={cn("w-2.5 h-2.5 rounded-full", l.color)} />
-              <span className="text-xs text-gray-500">{l.label}</span>
+              <span className="text-xs text-muted-foreground">{l.label}</span>
             </div>
           ))}
         </div>

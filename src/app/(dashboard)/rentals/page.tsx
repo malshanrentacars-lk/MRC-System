@@ -1,6 +1,6 @@
 import { getRentals } from "@/app/actions/rentals";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Trash } from "lucide-react";
 import RentalsClient from "./RentalsClient";
 
 export default async function RentalsPage({
@@ -23,14 +23,20 @@ export default async function RentalsPage({
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="page-header">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Rentals</h1>
           <p className="page-subtitle">Manage vehicle rentals — {count} total</p>
         </div>
-        <Link href="/rentals/new" className="btn-primary">
-          <Plus className="w-4 h-4" /> New Rental
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/rentals/deleted" className="btn-danger inline-flex items-center gap-2">
+            <Trash className="w-4 h-4" />
+            <span className="font-medium">Deleted Rentals</span>
+          </Link>
+          <Link href="/rentals/new" className="btn-primary">
+            <Plus className="w-4 h-4" /> New Rental
+          </Link>
+        </div>
       </div>
       <RentalsClient rentals={rentals} total={count} currentPage={page} />
     </div>

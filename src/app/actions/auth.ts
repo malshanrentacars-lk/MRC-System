@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import bcrypt from 'bcryptjs';
-import { supabaseAdmin } from '@/lib/supabase';
+import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase';
 import { createSessionToken, getSession } from '@/lib/auth';
 import { SessionUser } from '@/types';
 import { logActivity } from '@/app/actions/activity';
@@ -16,6 +16,12 @@ export async function loginAction(formData: FormData) {
 
   if (!username || !password) {
     return { error: 'Username and password are required' };
+  }
+
+  if (!isSupabaseConfigured) {
+    return {
+      error: 'Authentication is not configured on this deployment. Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY in Vercel.',
+    };
   }
 
   const { data: user, error } = await supabaseAdmin

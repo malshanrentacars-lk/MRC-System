@@ -61,6 +61,22 @@ Default login (from seed data):
 - **Username:** `amil`
 - **Password:** `Admin@1234`
 
+### Verify deployed login data
+
+If login fails on Vercel, run:
+
+```bash
+npm run check-login -- amil Admin@1234
+```
+
+This checks whether the configured Supabase project has the `amil` user row, whether the account is active, and whether the stored password hash matches.
+
+If the password hash does not match, reset the default admin in the same Supabase project:
+
+```bash
+npm run reset-admin
+``` 
+
 ## 🗄 Database
 
 ### Tables

@@ -3,11 +3,11 @@
 import { useState, useTransition, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Plus, Edit, Trash2, Loader2, UserSearch, Eye } from "lucide-react";
+import { Search, Plus, Loader2, UserSearch } from "lucide-react";
 import { Customer } from "@/types";
 import { formatDate } from "@/lib/utils";
-import { createCustomer, updateCustomer, deleteCustomer, getCustomerByNic } from "@/app/actions/customers";
-import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
+import { formatAddress } from "@/lib/address";
+import { getCustomerByNic } from "@/app/actions/customers";
 
 interface CustomersClientProps {
   customers: Customer[];
@@ -20,8 +20,6 @@ export default function CustomersClient({ customers, total, currentPage }: Custo
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   // NIC auto-fill state
   const [nicSearch, setNicSearch] = useState("");
@@ -47,15 +45,6 @@ export default function CustomersClient({ customers, total, currentPage }: Custo
     } finally {
       setNicSearching(false);
     }
-  }
-
-  async function handleDelete() {
-    if (!deleteId) return;
-    startTransition(async () => {
-      await deleteCustomer(deleteId);
-      setDeleteId(null);
-      router.refresh();
-    });
   }
 
   return (
@@ -97,24 +86,18 @@ export default function CustomersClient({ customers, total, currentPage }: Custo
 
       <div className="overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Actions</th><th>Name</th><th>NIC</th><th>Phone</th><th>Phone 2</th><th>License</th><th>License Expiry</th><th>Address</th></tr></thead>
+          <thead><tr><th>Name</th><th>NIC</th><th>Phone</th><th>Phone 2</th><th>License</th><th>License Expiry</th><th>Address</th></tr></thead>
           <tbody>
-            {customers.length === 0 && <tr><td colSpan={8} className="text-center py-12 text-gray-400">No customers found</td></tr>}
+            {customers.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-400">No customers found</td></tr>}
             {customers.map((c) => (
-              <tr key={c.id}>
-                <td>
-                  <div className="flex gap-2">
-                    <Link href={`/customers/${c.id}`} className="text-green-600 hover:text-green-700" title="View"><Eye className="w-4 h-4" /></Link>
-                    <button onClick={() => setDeleteId(c.id)} className="text-red-400 hover:text-red-600" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </td>
+              <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><p className="font-medium text-gray-900">{c.name}</p></td>
                 <td className="text-gray-500">{c.nic ?? "—"}</td>
                 <td>{c.phone ?? "—"}</td>
                 <td className="text-gray-400">{c.phone2 ?? "—"}</td>
                 <td className="text-gray-500">{c.license_number ?? "—"}</td>
                 <td className="text-gray-500">{formatDate(c.license_expiry)}</td>
-                <td className="text-gray-500 max-w-[150px] truncate">{c.address ?? "—"}</td>
+                <td className="text-gray-500 max-w-[150px] truncate">{formatAddress(c)}</td>
               </tr>
             ))}
           </tbody>
@@ -127,7 +110,6 @@ export default function CustomersClient({ customers, total, currentPage }: Custo
         )}
       </div>
 
-      <PasswordConfirmModal open={!!deleteId} onOpenChange={() => setDeleteId(null)} title="Delete Customer" description="This will deactivate this customer record." onConfirm={handleDelete} />
     </div>
   );
 }

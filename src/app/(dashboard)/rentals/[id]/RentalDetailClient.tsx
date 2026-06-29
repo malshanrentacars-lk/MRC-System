@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Rental, Vehicle } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatAddress } from "@/lib/address";
 import { activateRental, returnRental, exchangeVehicle, cancelRental, uploadSignedAgreement, recordRentalPayment, removeSignedAgreement } from "@/app/actions/rentals";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -788,7 +789,7 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
                         { label: "NIC", value: rental.guarantor.nic ?? "—" },
                         { label: "Phone", value: rental.guarantor.phone ?? "—" },
                         { label: "Alt. Phone", value: rental.guarantor.phone2 ?? "—" },
-                        { label: "Address", value: rental.guarantor.address ?? "—" },
+                        { label: "Address", value: formatAddress(rental.guarantor) },
                         { label: "Relationship", value: rental.guarantor.relationship ?? "—" },
                         { label: "Since", value: formatDate(rental.guarantor.created_at) },
                       ].map(f => (

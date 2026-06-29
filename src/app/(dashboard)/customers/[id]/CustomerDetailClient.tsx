@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, User, ClipboardList, Edit, ChevronDown, TrendingUp, ImageIcon } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatAddress } from "@/lib/address";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { updateCustomer } from "@/app/actions/customers";
@@ -11,6 +12,7 @@ import { useRouter } from "next/navigation";
 import FileUploader from "@/components/shared/FileUploader";
 import EditModal from "@/components/shared/EditModal";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
+import AddressFields from "@/components/shared/AddressFields";
 
 // ── Income Details list ────────────────────────────────────────────────────────
 function CustomerFinancialsList({ rentals }: { rentals: any[] }) {
@@ -192,7 +194,7 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
                   { label: "Phone", value: customer.phone ?? "—" },
                   { label: "Alt. Phone", value: customer.phone2 ?? "—" },
                   { label: "Email", value: customer.email ?? "—" },
-                  { label: "Address", value: customer.address ?? "—" },
+                  { label: "Address", value: formatAddress(customer) },
                   { label: "License Number", value: customer.license_number ?? "—" },
                   { label: "License Expiry", value: formatDate(customer.license_expiry) },
                   { label: "Member Since", value: formatDate(customer.created_at) },
@@ -303,14 +305,17 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
             { name: "phone", label: "Phone", defaultValue: customer.phone },
             { name: "phone2", label: "Alt. Phone", defaultValue: customer.phone2 },
             { name: "email", label: "Email", type: "email", defaultValue: customer.email },
-            { name: "address", label: "Address", defaultValue: customer.address },
-            { name: "license_number", label: "License Number", defaultValue: customer.license_number },
           ].map(f => (
             <div key={f.name}>
               <label className="form-label text-xs">{f.label} {f.required && <span className="text-red-500">*</span>}</label>
               <input name={f.name} type={f.type ?? "text"} required={f.required} defaultValue={f.defaultValue ?? ""} className="form-input text-sm" />
             </div>
           ))}
+          <AddressFields defaultValues={customer} />
+          <div>
+            <label className="form-label text-xs">License Number</label>
+            <input name="license_number" defaultValue={customer.license_number ?? ""} className="form-input text-sm" />
+          </div>
           <div>
             <label className="form-label text-xs">License Expiry</label>
             <input name="license_expiry" type="date" defaultValue={customer.license_expiry ? new Date(customer.license_expiry).toISOString().split('T')[0] : ""} className="form-input text-sm" />

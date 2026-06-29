@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Search, Plus, Eye, Loader2 } from "lucide-react";
 import { Guarantor } from "@/types";
+import { formatAddress } from "@/lib/address";
 
 export default function GuarantorsClient({
   guarantors,
@@ -48,24 +49,17 @@ export default function GuarantorsClient({
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="data-table">
-          <thead><tr><th>Actions</th><th>Name</th><th>NIC</th><th>Phone</th><th>Address</th><th>Linked To</th></tr></thead>
+          <thead><tr><th>Name</th><th>NIC</th><th>Phone</th><th>Address</th><th>Linked To</th></tr></thead>
           <tbody>
             {guarantors.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">No guarantors found</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">No guarantors found</td></tr>
             )}
             {guarantors.map(g => (
-              <tr key={g.id}>
-                <td>
-                  <div className="flex gap-2">
-                    <Link href={`/guarantors/${g.id}`} className="text-blue-500 hover:text-blue-700">
-                      <Eye className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </td>
+              <tr key={g.id} onClick={() => router.push(`/guarantors/${g.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><p className="font-medium text-gray-900">{g.name}</p></td>
                 <td className="text-gray-500">{g.nic ?? "—"}</td>
                 <td>{g.phone ?? "—"}</td>
-                <td className="text-gray-500 max-w-[150px] truncate">{g.address ?? "—"}</td>
+                <td className="text-gray-500 max-w-[150px] truncate">{formatAddress(g)}</td>
                 <td>
                   {g.customer ? (
                     <span className="text-xs text-gray-500">{g.customer.name}</span>

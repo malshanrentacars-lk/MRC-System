@@ -3,16 +3,16 @@
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Plus, Loader2, Car } from "lucide-react";
-import { Supplier } from "@/types";
+import { Search, Plus, Loader2 } from "lucide-react";
+import { Company } from "@/types";
 import { formatAddress } from "@/lib/address";
 
-export default function SuppliersClient({
-  suppliers,
+export default function CompaniesClient({
+  companies,
   total,
   currentPage,
 }: {
-  suppliers: Supplier[];
+  companies: Company[];
   total: number;
   currentPage: number;
 }) {
@@ -41,8 +41,8 @@ export default function SuppliersClient({
           />
         </div>
         {isPending && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
-        <Link href="/suppliers/new" className="btn-primary ml-auto">
-          <Plus className="w-4 h-4" /> Add Supplier
+        <Link href="/companies/new" className="btn-primary ml-auto">
+          <Plus className="w-4 h-4" /> Add Company
         </Link>
       </div>
 
@@ -50,24 +50,25 @@ export default function SuppliersClient({
       <div className="overflow-x-auto">
         <table className="data-table">
           <thead>
-            <tr><th>Name</th><th>Phone</th><th>Email</th><th>NIC</th><th>Address</th><th>Vehicles</th></tr>
+            <tr><th>Logo</th><th>Name</th><th>Phone</th><th>Email</th><th>Address</th></tr>
           </thead>
           <tbody>
-            {suppliers.length === 0 && (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">No suppliers found</td></tr>
+            {companies.length === 0 && (
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">No companies found</td></tr>
             )}
-            {suppliers.map(s => (
-              <tr key={s.id} onClick={() => router.push(`/suppliers/${s.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
-                <td><p className="font-medium text-gray-900">{s.name}</p></td>
-                <td>{s.phone ?? "—"}</td>
-                <td className="text-gray-500">{s.email ?? "—"}</td>
-                <td className="text-gray-500">{s.nic ?? "—"}</td>
-                <td className="text-gray-500 max-w-[150px] truncate">{formatAddress(s)}</td>
+            {companies.map(c => (
+              <tr key={c.id} onClick={() => router.push(`/companies/${c.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td>
-                  <Link href={`/vehicles?supplier=${s.id}`} className="inline-flex items-center gap-1 text-blue-500 text-xs hover:underline">
-                    <Car className="w-3 h-3" /> Vehicles
-                  </Link>
+                  {c.logo_url ? (
+                    <img src={c.logo_url} alt={c.name} className="h-8 w-8 rounded object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 rounded bg-gray-100 text-xs flex items-center justify-center text-gray-400">—</div>
+                  )}
                 </td>
+                <td><p className="font-medium text-gray-900">{c.name}</p></td>
+                <td>{c.phone ?? "—"}</td>
+                <td className="text-gray-500">{c.email ?? "—"}</td>
+                <td className="text-gray-500 max-w-[150px] truncate">{formatAddress(c)}</td>
               </tr>
             ))}
           </tbody>
@@ -75,7 +76,7 @@ export default function SuppliersClient({
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-sm text-gray-500">Showing {suppliers.length} of {total}</span>
+        <span className="text-sm text-gray-500">Showing {companies.length} of {total}</span>
         {currentPage * 10 < total && (
           <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">Load More</Link>
         )}

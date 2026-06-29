@@ -7,8 +7,10 @@ import { ArrowLeft } from "lucide-react";
 import { createSupplier } from "@/app/actions/suppliers";
 import { BANKS } from "@/lib/vehicleData";
 import FileUploader from "@/components/shared/FileUploader";
+import AddressFields from "@/components/shared/AddressFields";
+import type { Company } from "@/types";
 
-export default function NewSupplierClient() {
+export default function NewSupplierClient({ companies }: { companies: Company[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +61,16 @@ export default function NewSupplierClient() {
             <label className="form-label">NIC</label>
             <input name="nic" className="form-input" />
           </div>
-          <div className="md:col-span-2 lg:col-span-3">
-            <label className="form-label">Address</label>
-            <input name="address" className="form-input" />
+          <div>
+            <label className="form-label">Company</label>
+            <select name="company_id" className="form-select">
+              <option value="">— Select Company —</option>
+              {companies.map(company => (
+                <option key={company.id} value={company.id}>{company.name}</option>
+              ))}
+            </select>
           </div>
+          <AddressFields />
         </div>
       </div>
 

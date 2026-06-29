@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { Car, User, Shield } from "lucide-react";
 import PrintButton from "./PrintButton";
+import { formatAddress } from "@/lib/address";
 
 export default async function AgreementPage({ params }: { params: Promise<{ id: string }> }) {
   const p = await params;
@@ -22,7 +23,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{settings?.company_name ?? "CarZone"}</h1>
-            {settings?.address && <p className="text-sm text-gray-600 mt-1">{settings.address}</p>}
+            <p className="text-sm text-gray-600 mt-1">{formatAddress(settings)}</p>
             {settings?.phone && <p className="text-sm text-gray-600">{settings.phone}</p>}
           </div>
           <div className="text-right">
@@ -45,7 +46,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
                 ["Phone", rental.customer?.phone],
                 ["Alt Phone", rental.customer?.phone2],
                 ["Email", rental.customer?.email],
-                ["Address", rental.customer?.address],
+                ["Address", formatAddress(rental.customer)],
                 ["License No.", rental.customer?.license_number],
                 ["License Expiry", formatDate(rental.customer?.license_expiry)],
               ].map(([l, v]) => v ? (
@@ -67,7 +68,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
                   ["Full Name", rental.guarantor.name],
                   ["NIC", rental.guarantor.nic],
                   ["Phone", rental.guarantor.phone],
-                  ["Address", rental.guarantor.address],
+                  ["Address", formatAddress(rental.guarantor)],
                 ].map(([l, v]) => v ? (
                   <tr key={l as string} className="border-b border-gray-100">
                     <td className="py-1.5 text-gray-500 pr-3 w-28">{l}</td>

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Shield, Edit, Trash2, ClipboardList, Users, ChevronDown, ImageIcon } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatAddress } from "@/lib/address";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import FileUploader from "@/components/shared/FileUploader";
 import EditModal from "@/components/shared/EditModal";
@@ -11,6 +12,7 @@ import { updateGuarantor, deleteGuarantor } from "@/app/actions/suppliers";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import StatusBadge from "@/components/shared/StatusBadge";
+import AddressFields from "@/components/shared/AddressFields";
 
 function ImageCard({ label, url }: { label: string; url?: string | null }) {
   return (
@@ -152,7 +154,7 @@ export default function GuarantorDetailClient({
                   { label: "Phone", value: guarantor.phone ?? "—" },
                   { label: "Alt. Phone", value: guarantor.phone2 ?? "—" },
                   { label: "Relationship", value: guarantor.relationship ?? "—" },
-                  { label: "Address", value: guarantor.address ?? "—" },
+                  { label: "Address", value: formatAddress(guarantor) },
                   { label: "Added On", value: formatDate(guarantor.created_at) },
                 ].map(f => (
                   <div key={f.label}>
@@ -288,10 +290,7 @@ export default function GuarantorDetailClient({
             <label className="form-label text-xs">Relationship to Customer</label>
             <input name="relationship" defaultValue={guarantor.relationship ?? ""} className="form-input text-sm" />
           </div>
-          <div>
-            <label className="form-label text-xs">Address</label>
-            <input name="address" defaultValue={guarantor.address ?? ""} className="form-input text-sm" />
-          </div>
+          <AddressFields defaultValues={guarantor} className="md:col-span-2" />
           <div className="md:col-span-2">
             <label className="form-label text-xs">Notes</label>
             <textarea name="notes" defaultValue={guarantor.notes ?? ""} className="form-input text-sm resize-none h-20" />

@@ -6,6 +6,14 @@ export type RentalStatus = 'booked' | 'active' | 'paused' | 'returned' | 'cancel
 export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'balance_due' | 'refund_pending';
 export type TodoType = 'rental_end' | 'service_due' | 'service_overdue' | 'booked_pickup' | 'custom';
 
+export interface AddressParts {
+  street_address?: string;
+  street_address_2?: string;
+  city?: string;
+  postal_code?: string;
+  address?: string;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -18,10 +26,9 @@ export interface User {
   updated_at: string;
 }
 
-export interface CompanySettings {
+export interface CompanySettings extends AddressParts {
   id: string;
   company_name: string;
-  address?: string;
   phone?: string;
   email?: string;
   logo_url?: string;
@@ -31,13 +38,27 @@ export interface CompanySettings {
   updated_at: string;
 }
 
-export interface Supplier {
+export interface Company extends AddressParts {
   id: string;
   name: string;
   phone?: string;
+  email?: string;
+  notes?: string;
+  logo_url?: string;
+  logo_path?: string;
+  is_active: boolean;
+  created_at: string;
+  created_by?: string;
+}
+
+export interface Supplier extends AddressParts {
+  id: string;
+  name: string;
+  company_id?: string;
+  company?: Company;
+  phone?: string;
   phone2?: string;
   email?: string;
-  address?: string;
   nic?: string;
   bank?: string;
   account_number?: string;
@@ -114,14 +135,13 @@ export interface RateTier {
   rate_per_day: number;
 }
 
-export interface Customer {
+export interface Customer extends AddressParts {
   id: string;
   name: string;
   nic?: string;
   phone?: string;
   phone2?: string;
   email?: string;
-  address?: string;
   license_number?: string;
   license_expiry?: string;
   notes?: string;
@@ -136,7 +156,7 @@ export interface Customer {
   updated_at: string;
 }
 
-export interface Guarantor {
+export interface Guarantor extends AddressParts {
   id: string;
   customer_id?: string;
   customer?: Customer;
@@ -144,7 +164,6 @@ export interface Guarantor {
   nic?: string;
   phone?: string;
   phone2?: string;
-  address?: string;
   relationship?: string;
   notes?: string;
   nic_front_url?: string;

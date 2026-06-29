@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createCustomer } from "@/app/actions/customers";
 import FileUploader from "@/components/shared/FileUploader";
+import AddressFields from "@/components/shared/AddressFields";
 
 export default function NewCustomerClient() {
   const router = useRouter();
@@ -49,10 +50,7 @@ export default function NewCustomerClient() {
             <label className="form-label">Email</label>
             <input name="email" type="email" className="form-input" />
           </div>
-          <div className="md:col-span-2 lg:col-span-1">
-            <label className="form-label">Address</label>
-            <input name="address" className="form-input" />
-          </div>
+          <AddressFields className="md:col-span-2 lg:col-span-3" />
         </div>
       </div>
 

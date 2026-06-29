@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Building2, Car, Edit, TrendingUp, DollarSign, ImageIcon } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatAddress } from "@/lib/address";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { updateSupplier } from "@/app/actions/suppliers";
@@ -12,6 +13,8 @@ import FileUploader from "@/components/shared/FileUploader";
 import EditModal from "@/components/shared/EditModal";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import { BANKS } from "@/lib/vehicleData";
+import AddressFields from "@/components/shared/AddressFields";
+import type { Company } from "@/types";
 
 function ImageCard({ label, url }: { label: string; url?: string | null }) {
   return (
@@ -36,7 +39,7 @@ function ImageCard({ label, url }: { label: string; url?: string | null }) {
   );
 }
 
-export default function SupplierDetailClient({ supplier, vehicles }: { supplier: any; vehicles: any[] }) {
+export default function SupplierDetailClient({ supplier, vehicles, companies }: { supplier: any; vehicles: any[]; companies: Company[] }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
@@ -116,7 +119,8 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
                   { label: "Phone", value: supplier.phone ?? "—" },
                   { label: "Alt. Phone", value: supplier.phone2 ?? "—" },
                   { label: "Email", value: supplier.email ?? "—" },
-                  { label: "Address", value: supplier.address ?? "—" },
+                  { label: "Address", value: formatAddress(supplier) },
+                  { label: "Company", value: supplier.company?.name ?? "—" },
                   { label: "Added On", value: formatDate(supplier.created_at) },
                   { label: "Vehicles Supplied", value: vehicles.length },
                 ].map(f => (
@@ -173,7 +177,7 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
                 </div>
               ) : (
                 <table className="data-table">
-                  <thead><tr><th>Reg #</th><th>Brand</th><th>Model</th><th>Year</th><th>Type</th><th>Status</th><th>Action</th></tr></thead>
+                  <thead><tr><th>Reg #</th><th>Brand</th><th>Model</th><th>Year</th><th>Type</th><th>Status</th></tr></thead>
                   <tbody>
                     {vehicles.map((v: any) => (
                       <tr key={v.id}>
@@ -181,7 +185,6 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
                         <td>{v.brand}</td><td>{v.model}</td>
                         <td>{v.year ?? "—"}</td><td>{v.type}</td>
                         <td><StatusBadge status={v.status} /></td>
-                        <td><Link href={`/vehicles/${v.id}`} className="text-xs text-blue-600 hover:underline">View →</Link></td>
                       </tr>
                     ))}
                   </tbody>
@@ -277,13 +280,22 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
             { name: "phone2", label: "Phone 2", defaultValue: supplier.phone2 },
             { name: "email", label: "Email", defaultValue: supplier.email },
             { name: "nic", label: "NIC", defaultValue: supplier.nic },
-            { name: "address", label: "Address", defaultValue: supplier.address },
           ].map(f => (
             <div key={f.name}>
               <label className="form-label text-xs">{f.label}</label>
               <input name={f.name} defaultValue={f.defaultValue ?? ""} className="form-input text-sm" />
             </div>
           ))}
+          <div>
+            <label className="form-label text-xs">Company</label>
+            <select name="company_id" defaultValue={supplier.company_id ?? supplier.company?.id ?? ""} className="form-select text-sm">
+              <option value="">— Select Company —</option>
+              {companies.map(company => (
+                <option key={company.id} value={company.id}>{company.name}</option>
+              ))}
+            </select>
+          </div>
+          <AddressFields defaultValues={supplier} />
           
           {/* Bank Details Section */}
           <div>

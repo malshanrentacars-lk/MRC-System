@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { requireAdmin, requireAuth, getSession, createSessionToken } from '@/lib/auth';
 import { logActivity } from '@/app/actions/activity';
 import { buildDiff } from '@/lib/diff';
+import { readAddressForm } from '@/lib/address';
 import bcrypt from 'bcryptjs';
 
 const USER_FIELDS: Record<string, string> = {
@@ -134,19 +135,31 @@ export async function updateCompanySettings(formData: FormData) {
   await requireAdmin();
 
   const { data: existing } = await supabaseAdmin.from('company_settings').select('id').single();
+  const address = readAddressForm(formData);
 
   const payload = {
     company_name: formData.get('company_name') as string,
-    address: formData.get('address') as string || null,
     phone: formData.get('phone') as string || null,
     email: formData.get('email') as string || null,
+    ...address,
     service_interval_km: parseInt(formData.get('service_interval_km') as string) || 5000,
   };
 
   if (existing) {
-    await supabaseAdmin.from('company_settings').update(payload).eq('id', existing.id);
+    const { error } = await supabaseAdmin.from('company_settings').update(payload).eq('id', existing.id);
+    if (error && error.message.includes('column') && error.message.includes('schema cache')) {
+      const { company_name, address, phone, email, service_interval_km } = payload as any;
+      await supabaseAdmin.from('company_settings')
+        .update({ company_name, address, phone, email, service_interval_km })
+        .eq('id', existing.id);
+    }
   } else {
-    await supabaseAdmin.from('company_settings').insert(payload);
+    const { error } = await supabaseAdmin.from('company_settings').insert(payload);
+    if (error && error.message.includes('column') && error.message.includes('schema cache')) {
+      const { company_name, address, phone, email, service_interval_km } = payload as any;
+      await supabaseAdmin.from('company_settings')
+        .insert({ company_name, address, phone, email, service_interval_km });
+    }
   }
 
   revalidatePath('/settings');

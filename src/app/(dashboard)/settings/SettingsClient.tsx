@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateCompanySettings } from "@/app/actions/users";
 import { CompanySettings } from "@/types";
 import { CheckCircle } from "lucide-react";
+import AddressFields from "@/components/shared/AddressFields";
 
 export default function SettingsClient({ settings }: { settings: CompanySettings | null }) {
   const router = useRouter();
@@ -39,13 +40,14 @@ export default function SettingsClient({ settings }: { settings: CompanySettings
           { name: "company_name", label: "Company Name", required: true, defaultValue: settings?.company_name ?? "MRC", placeholder: "e.g. MRC Rentals" },
           { name: "phone", label: "Phone", defaultValue: settings?.phone, placeholder: "e.g. +94 11 123 4567" },
           { name: "email", label: "Email", type: "email", defaultValue: settings?.email, placeholder: "e.g. info@mrc.lk" },
-          { name: "address", label: "Address", defaultValue: settings?.address, placeholder: "e.g. No. 10, Union Place, Colombo 02" },
         ].map(f => (
           <div key={f.name}>
             <label className="form-label">{f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}</label>
             <input name={f.name} type={f.type ?? "text"} required={f.required} defaultValue={f.defaultValue ?? ""} placeholder={f.placeholder} className="form-input" />
           </div>
         ))}
+
+        <AddressFields defaultValues={settings} className="space-y-2" />
 
         <div>
           <label className="form-label">Service Interval (KM)</label>

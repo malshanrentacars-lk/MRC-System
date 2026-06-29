@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { DepositEntry } from "@/app/actions/deposits";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -16,6 +16,7 @@ interface DepositsClientProps {
 const activeStatuses = ["active", "booked"];
 
 export default function DepositsClient({ deposits, total, currentPage }: DepositsClientProps) {
+  const router = useRouter();
   const pathname = usePathname();
 
   return (
@@ -44,7 +45,7 @@ export default function DepositsClient({ deposits, total, currentPage }: Deposit
             {deposits.map((d) => {
               const isActive = activeStatuses.includes(d.status);
               return (
-                <tr key={d.id} className={isActive ? "bg-blue-50/20" : ""}>
+                <tr key={d.id} onClick={() => router.push(`/rentals/${d.id}`)} className={`${isActive ? "bg-blue-50/20" : ""} cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100`}>
                   <td>
                     <span className="font-semibold text-blue-600">{d.rental_number}</span>
                   </td>
@@ -77,6 +78,7 @@ export default function DepositsClient({ deposits, total, currentPage }: Deposit
                   <td>
                     <Link
                       href={`/rentals/${d.id}`}
+                      onClick={e => e.stopPropagation()}
                       className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700 text-xs"
                     >
                       View <ExternalLink className="w-3 h-3" />

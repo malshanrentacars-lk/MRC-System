@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/vehicles", icon: Car, label: "Vehicles" },
+  { href: "/companies", icon: Package, label: "Companies" },
   { href: "/suppliers", icon: Package, label: "Suppliers" },
   { href: "/customers", icon: Users, label: "Customers" },
   { href: "/guarantors", icon: Shield, label: "Guarantors" },
@@ -103,7 +104,8 @@ function SidebarInner({
   user: SessionUser;
   pathname: string;
 }) {
-  const userInitial = user.full_name.charAt(0).toUpperCase();
+  const userName = user?.full_name || "Guest";
+  const userInitial = userName.charAt(0).toUpperCase();
 
   return (
     <>
@@ -154,8 +156,8 @@ function SidebarInner({
             {userInitial}
           </div>
           <div className="hidden min-w-0 flex-1 md:block">
-            <p className="truncate text-sm font-medium text-foreground">{user.full_name}</p>
-            <p className="text-[11px] capitalize text-muted-foreground">{user.role}</p>
+            <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+            <p className="text-[11px] capitalize text-muted-foreground">{user.role || "employee"}</p>
           </div>
         </div>
 

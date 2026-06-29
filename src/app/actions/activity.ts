@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 
 export interface ActivityLogParams {
   action: 'created' | 'updated' | 'deleted' | 'activated' | 'deactivated' | 'returned' | 'cancelled' | 'uploaded' | 'login' | 'status_changed' | 'exchanged';
-  module: 'Vehicles' | 'Customers' | 'Suppliers' | 'Guarantors' | 'Rentals' | 'Users' | 'Settings' | 'Inspections';
+  module: 'Vehicles' | 'Customers' | 'Suppliers' | 'Guarantors' | 'Rentals' | 'Users' | 'Settings' | 'Inspections' | 'Companies';
   entity_id?: string;
   entity_label?: string;
   details?: string;

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createGuarantor } from "@/app/actions/suppliers";
 import FileUploader from "@/components/shared/FileUploader";
+import AddressFields from "@/components/shared/AddressFields";
 
 export default function NewGuarantorClient() {
   const router = useRouter();
@@ -44,10 +45,7 @@ export default function NewGuarantorClient() {
             <label className="form-label">Phone 2</label>
             <input name="phone2" className="form-input" />
           </div>
-          <div className="md:col-span-2 lg:col-span-2">
-            <label className="form-label">Address</label>
-            <input name="address" className="form-input" />
-          </div>
+          <AddressFields className="md:col-span-2 lg:col-span-2" />
         </div>
       </div>
 

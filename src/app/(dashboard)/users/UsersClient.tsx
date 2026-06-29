@@ -127,19 +127,10 @@ export default function UsersClient({
 
           <div className="overflow-x-auto">
             <table className="data-table">
-              <thead><tr><th>Actions</th><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+              <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id}>
-                    <td><div className="flex gap-2">
-                      <Link href={`/users/${u.id}`} className="text-green-600 hover:text-green-700" title="View"><Eye className="w-4 h-4" /></Link>
-                      <button onClick={() => { setEditUser(u); setShowForm(false); }} className="text-blue-500 hover:text-blue-700" title="Edit">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setConfirmToggle(u)} className="text-gray-500">
-                        {u.is_active ? <ToggleRight className="w-5 h-5 text-green-500" /> : <ToggleLeft className="w-5 h-5 text-gray-300" />}
-                      </button>
-                    </div></td>
+                  <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                     <td><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
                     <td className="font-medium">{u.full_name}</td>
                     <td className="text-gray-500">{u.email ?? "—"}</td>

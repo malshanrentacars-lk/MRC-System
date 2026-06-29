@@ -80,7 +80,6 @@ export default function VehiclesClient({ vehicles, total, currentPage }: Vehicle
         <table className="data-table">
           <thead>
             <tr>
-              <th>Actions</th>
               <th>Reg. Number</th>
               <th>Brand</th>
               <th>Model</th>
@@ -95,15 +94,10 @@ export default function VehiclesClient({ vehicles, total, currentPage }: Vehicle
           </thead>
           <tbody>
             {vehicles.length === 0 && (
-              <tr><td colSpan={11} className="text-center py-12 text-gray-400">No vehicles found</td></tr>
+              <tr><td colSpan={10} className="text-center py-12 text-gray-400">No vehicles found</td></tr>
             )}
             {vehicles.map((v) => (
-              <tr key={v.id}>
-                <td>
-                  <Link href={`/vehicles/${v.id}`} className="text-blue-500 hover:text-blue-700 transition-colors">
-                    <Eye className="w-4 h-4" />
-                  </Link>
-                </td>
+              <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><span className="font-semibold text-gray-900">{v.reg_number}</span></td>
                 <td className="text-blue-600 font-medium">{v.brand}</td>
                 <td>{v.model}</td>

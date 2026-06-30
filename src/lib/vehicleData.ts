@@ -15,6 +15,7 @@ export const BRANDS = [
   { name: "Mercedes-Benz", models: ["C-Class","E-Class","Other"] },
   { name: "Audi", models: ["A4","Q5","Other"] },
   { name: "Land Rover", models: ["Range Rover","Other"] },
+  { name: "Renault", models: ["Kwid"] },
   { name: "Other", models: ["Other"] },
 ] as const;
 

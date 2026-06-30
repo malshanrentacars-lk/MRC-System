@@ -210,6 +210,7 @@ export async function createVehicle(formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
+        rental_start_date, renew_date,
         ...dataWithoutDocs 
       } = vehicleData;
       const { data: d2, error: e2 } = await supabaseAdmin
@@ -324,6 +325,7 @@ export async function updateVehicle(id: string, formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
+        rental_start_date, renew_date,
         ...dataWithoutDocs 
       } = updateData;
       const { error: e2 } = await supabaseAdmin.from('vehicles').update(dataWithoutDocs).eq('id', id);

@@ -951,8 +951,8 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Photos</p>
             <FileUploader
               label="(JPG/PNG, max 5MB per photo, up to 6)"
-              bucket="vehicle-photos"
-              folder={vehicle.reg_number}
+              bucket="vehicle-documents"
+              folder={`${vehicle.reg_number}/photos`}
               accept="image/*"
               multiple={true}
               maxFiles={6}

@@ -431,7 +431,7 @@ export async function deleteVehicle(id: string) {
     const { data: photos } = await supabaseAdmin.from('vehicle_photos').select('storage_path').eq('vehicle_id', id);
     if (photos) {
       for (const photo of photos) {
-        if (photo.storage_path) storagePaths.push({ bucket: 'vehicle-photos', path: photo.storage_path });
+        if (photo.storage_path) storagePaths.push({ bucket: 'vehicle-documents', path: photo.storage_path });
       }
     }
 
@@ -444,8 +444,6 @@ export async function deleteVehicle(id: string) {
     if (v?.reg_number) {
       await deleteStorageFolder('vehicle-documents', `${v.reg_number}/`);
     }
-    // Clean up any remaining files under the vehicle id prefix in vehicle-photos
-    await deleteStorageFolder('vehicle-photos', `${id}/`);
 
     const { error } = await supabaseAdmin.from('vehicles').delete().eq('id', id);
     if (error) return { error: error.message };
@@ -472,16 +470,20 @@ export async function updateVehicleStatus(id: string, status: Vehicle['status'])
 export async function uploadVehiclePhoto(vehicleId: string, file: File, isPrimary = false) {
   await requireAuth();
 
+  const { data: vehicle } = await supabaseAdmin.from('vehicles')
+    .select('reg_number').eq('id', vehicleId).single();
+  const regNumber = vehicle?.reg_number || vehicleId;
+
   const ext = file.name.split('.').pop();
-  const path = `${vehicleId}/${Date.now()}.${ext}`;
+  const path = `${regNumber}/photos/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
-    .from('vehicle-photos')
+    .from('vehicle-documents')
     .upload(path, file);
 
   if (uploadError) return { error: uploadError.message };
 
-  const { data: urlData } = supabaseAdmin.storage.from('vehicle-photos').getPublicUrl(path);
+  const { data: urlData } = supabaseAdmin.storage.from('vehicle-documents').getPublicUrl(path);
 
   const { data: inserted, error } = await supabaseAdmin.from('vehicle_photos').insert({
     vehicle_id: vehicleId,
@@ -498,7 +500,7 @@ export async function uploadVehiclePhoto(vehicleId: string, file: File, isPrimar
 
 export async function deleteVehiclePhoto(photoId: string, storagePath: string, vehicleId: string) {
   await requireAuth();
-  await supabaseAdmin.storage.from('vehicle-photos').remove([storagePath]);
+  await supabaseAdmin.storage.from('vehicle-documents').remove([storagePath]);
   await supabaseAdmin.from('vehicle_photos').delete().eq('id', photoId);
   revalidatePath(`/vehicles/${vehicleId}`);
   return { success: true };

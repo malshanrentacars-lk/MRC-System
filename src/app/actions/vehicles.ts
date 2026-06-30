@@ -112,6 +112,8 @@ function parseVehicleFields(formData: FormData) {
     insurance_expiry: formData.get('insurance_expiry') as string || null,
     revenue_license_expiry: formData.get('revenue_license_expiry') as string || null,
     eco_test_expiry: formData.get('eco_test_expiry') as string || null,
+    rental_start_date: formData.get('rental_start_date') as string || null,
+    renew_date: formData.get('renew_date') as string || null,
     registration_document_url: (formData.get('registration_document_url') as string) || null,
     registration_document_path: (formData.get('registration_document_path') as string) || null,
     revenue_license_url: (formData.get('revenue_license_url') as string) || null,
@@ -373,13 +375,85 @@ export async function updateVehicle(id: string, formData: FormData) {
   return { success: true };
 }
 
+async function deleteStorageFolder(bucket: string, prefix: string) {
+  async function collectFiles(currentPrefix: string): Promise<string[]> {
+    const { data } = await supabaseAdmin.storage.from(bucket).list(currentPrefix);
+    if (!data || data.length === 0) return [];
+
+    const result: string[] = [];
+    for (const item of data) {
+      const itemPath = `${currentPrefix}${item.name}`;
+      if (item.id === null) {
+        // Folder — recurse into it
+        const nested = await collectFiles(itemPath);
+        result.push(...nested);
+      } else {
+        result.push(itemPath);
+      }
+    }
+    return result;
+  }
+
+  const allPaths = await collectFiles(prefix);
+  if (allPaths.length > 0) {
+    // Delete in batches of 1000
+    for (let i = 0; i < allPaths.length; i += 1000) {
+      await supabaseAdmin.storage.from(bucket).remove(allPaths.slice(i, i + 1000));
+    }
+  }
+}
+
 export async function deleteVehicle(id: string) {
   await requireAuth();
-  const { data: v } = await supabaseAdmin.from('vehicles').select('brand, model, reg_number').eq('id', id).single();
-  const { error } = await supabaseAdmin.from('vehicles').update({ is_active: false }).eq('id', id);
-  if (error) return { error: error.message };
+  const { data: v } = await supabaseAdmin.from('vehicles')
+    .select('brand, model, reg_number, registration_document_path, revenue_license_path, eco_test_path, insurance_path, service_tag_path')
+    .eq('id', id).single();
+  const label = v ? `${v.brand} ${v.model} (${v.reg_number})` : id;
+
+  const { count } = await supabaseAdmin.from('rentals').select('*', { count: 'exact', head: true }).eq('vehicle_id', id);
+
+  if (count === 0) {
+    // Collect all storage paths to delete
+    const storagePaths: { bucket: string; path: string }[] = [];
+
+    // Document paths from vehicle record
+    if (v) {
+      const docPathFields = ['registration_document_path', 'revenue_license_path', 'eco_test_path', 'insurance_path', 'service_tag_path'] as const;
+      for (const field of docPathFields) {
+        const docPath = (v as Record<string, string | null>)[field];
+        if (docPath) storagePaths.push({ bucket: 'vehicle-documents', path: docPath });
+      }
+    }
+
+    // Vehicle photos from vehicle_photos table
+    const { data: photos } = await supabaseAdmin.from('vehicle_photos').select('storage_path').eq('vehicle_id', id);
+    if (photos) {
+      for (const photo of photos) {
+        if (photo.storage_path) storagePaths.push({ bucket: 'vehicle-photos', path: photo.storage_path });
+      }
+    }
+
+    // Delete individual files
+    for (const { bucket, path } of storagePaths) {
+      await supabaseAdmin.storage.from(bucket).remove([path]);
+    }
+
+    // Clean up any remaining files under the reg_number folder in vehicle-documents
+    if (v?.reg_number) {
+      await deleteStorageFolder('vehicle-documents', `${v.reg_number}/`);
+    }
+    // Clean up any remaining files under the vehicle id prefix in vehicle-photos
+    await deleteStorageFolder('vehicle-photos', `${id}/`);
+
+    const { error } = await supabaseAdmin.from('vehicles').delete().eq('id', id);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabaseAdmin.from('vehicles').update({ is_active: false }).eq('id', id);
+    if (error) return { error: error.message };
+  }
+
   revalidatePath('/vehicles');
-  await logActivity({ action: 'deleted', module: 'Vehicles', entity_id: id, entity_label: v ? `${v.brand} ${v.model} (${v.reg_number})` : id });
+  await logActivity({ action: 'deleted', module: 'Vehicles', entity_id: id, entity_label: label });
   return { success: true };
 }
 

@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
   insurance_expiry DATE,
   revenue_license_expiry DATE,
   eco_test_expiry DATE,
+  rental_start_date DATE,
+  renew_date DATE,
   registration_document_url TEXT,
   registration_document_path TEXT,
   revenue_license_url TEXT,

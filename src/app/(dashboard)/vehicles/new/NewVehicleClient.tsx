@@ -215,6 +215,14 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
             <label className="form-label">Eco Test Expiry</label>
             <input name="eco_test_expiry" type="date" className="form-input" />
           </div>
+          <div>
+            <label className="form-label">Rental Start Date</label>
+            <input name="rental_start_date" type="date" className="form-input" />
+          </div>
+          <div>
+            <label className="form-label">Renew Date</label>
+            <input name="renew_date" type="date" className="form-input" />
+          </div>
         </div>
 
         {/* Notes */}

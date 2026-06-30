@@ -848,6 +848,14 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               <label className="form-label text-sm">Eco Test Expiry</label>
               <input name="eco_test_expiry" type="date" defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
             </div>
+            <div>
+              <label className="form-label text-sm">Rental Start Date</label>
+              <input name="rental_start_date" type="date" defaultValue={vehicle.rental_start_date ?? ""} className="form-input text-sm" />
+            </div>
+            <div>
+              <label className="form-label text-sm">Renew Date</label>
+              <input name="renew_date" type="date" defaultValue={vehicle.renew_date ?? ""} className="form-input text-sm" />
+            </div>
           </div>
 
           <div className="mb-4">

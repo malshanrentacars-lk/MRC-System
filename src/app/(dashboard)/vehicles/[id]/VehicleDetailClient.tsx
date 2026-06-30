@@ -11,7 +11,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import EditModal from "@/components/shared/EditModal";
 import {
-  Edit, Trash2, Upload, X, Plus, Minus, Camera,
+  Edit, Trash2, Upload, X, Plus, Minus, Camera, Pencil, Check,
   Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown
 } from "lucide-react";
 import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES } from "@/lib/vehicleData";
@@ -210,7 +210,23 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     (vehicle.source as "Company" | "Supplier") || "Company"
   );
   const [editPayFreq, setEditPayFreq] = useState(vehicle.payment_frequency || "1_month");
-  const [editPayDays, setEditPayDays] = useState(vehicle.payment_days || "");
+  const payDayValues = (vehicle.payment_days || "").split(",");
+  const [editPayDay1, setEditPayDay1] = useState(payDayValues[0] ? parseInt(payDayValues[0]) : 30);
+  const [editPayDay2, setEditPayDay2] = useState(payDayValues[1] ? parseInt(payDayValues[1]) : 15);
+  const [editPayDaysLocked, setEditPayDaysLocked] = useState(true);
+  const [editInterval, setEditInterval] = useState("5000");
+  const [editCurrentKm, setEditCurrentKm] = useState(vehicle.current_km || 0);
+  const [editNextServiceKm, setEditNextServiceKm] = useState(vehicle.next_service_km || 5000);
+
+  function handleEditIntervalChange(interval: string) {
+    setEditInterval(interval);
+    setEditNextServiceKm(editCurrentKm + parseInt(interval));
+  }
+
+  function handleEditCurrentKmChange(km: number) {
+    setEditCurrentKm(km);
+    setEditNextServiceKm(km + parseInt(editInterval));
+  }
 
   function calcPayDays(freq: string): string {
     const today = new Date();
@@ -222,7 +238,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
 
   function handleEditPayFreqChange(freq: string) {
     setEditPayFreq(freq);
-    setEditPayDays(calcPayDays(freq));
+    if (editPayDaysLocked) {
+      const days = calcPayDays(freq).split(",");
+      setEditPayDay1(parseInt(days[0]));
+      if (days[1]) setEditPayDay2(parseInt(days[1]));
+    }
   }
 
   function handleEditBrandChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -759,13 +779,26 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             {[
               { name: "daily_rate", label: "Daily Rate (LKR)", defaultValue: vehicle.daily_rate.toString(), type: "number", required: true },
               { name: "current_km", label: "Current KM", defaultValue: (vehicle.current_km || "").toString(), type: "number" },
-              { name: "next_service_km", label: "Next Service KM", defaultValue: (vehicle.next_service_km || "").toString(), type: "number" },
             ].map(f => (
               <div key={f.name}>
                 <label className="form-label text-sm">{f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}</label>
-                <input name={f.name} type={f.type ?? "text"} defaultValue={f.defaultValue} required={f.required} className="form-input text-sm" />
+                <input name={f.name} type={f.type ?? "text"} defaultValue={f.defaultValue} required={f.required} className="form-input text-sm"
+                  onChange={e => { if (f.name === "current_km") handleEditCurrentKmChange(parseInt(e.target.value) || 0); }} />
               </div>
             ))}
+            <div>
+              <label className="form-label text-sm">Service Interval</label>
+              <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
+                <option value="3000">3,000 KM</option>
+                <option value="5000">5,000 KM</option>
+                <option value="7000">7,000 KM</option>
+                <option value="10000">10,000 KM</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label text-sm">Next Service KM</label>
+              <input name="next_service_km" type="number" value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+            </div>
             <div>
               <label className="form-label text-sm">Type</label>
               <select name="type" defaultValue={vehicle.type} className="form-select text-sm">
@@ -788,6 +821,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 <option value="Supplier">Supplier</option>
               </select>
             </div>
+            {editSource === "Supplier" && (
             <div>
               <label className="form-label text-sm">Supplier</label>
               <select name="supplier_id" defaultValue={vehicle.supplier_id ?? ""} className="form-select text-sm">
@@ -795,6 +829,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
+            )}
             {/* Supplier Payment Fields */}
             {editSource === "Supplier" && (
               <>
@@ -816,15 +851,37 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 </div>
                 <div>
                   <label className="form-label text-sm">Payment Day(s) of Month</label>
-                  <input
-                    name="payment_days"
-                    type="text"
-                    value={editPayDays}
-                    onChange={e => setEditPayDays(e.target.value)}
-                    placeholder="e.g. 15,30"
-                    className="form-input text-sm"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Auto-filled when frequency changes. You can also edit manually.</p>
+                  <input type="hidden" name="payment_days" value={editPayFreq === "15_days" ? `${editPayDay1},${editPayDay2}` : `${editPayDay1}`} />
+                  {editPayDaysLocked ? (
+                    <div className="flex items-center gap-2">
+                      <input type="text" readOnly value={editPayFreq === "15_days" ? `${editPayDay1}, ${editPayDay2}` : `${editPayDay1}`} className="form-input bg-gray-50 text-gray-500 cursor-not-allowed text-sm flex-1" />
+                      <button type="button" onClick={() => setEditPayDaysLocked(false)} className="p-2 text-gray-400 hover:text-blue-600 flex-shrink-0" title="Edit payment days">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      {editPayFreq === "15_days" ? (
+                        <>
+                          <select value={editPayDay1} onChange={e => setEditPayDay1(parseInt(e.target.value))} className="form-select text-sm w-[80px]">
+                            {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                          <span className="text-gray-400">,</span>
+                          <select value={editPayDay2} onChange={e => setEditPayDay2(parseInt(e.target.value))} className="form-select text-sm w-[80px]">
+                            {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        </>
+                      ) : (
+                        <select value={editPayDay1} onChange={e => setEditPayDay1(parseInt(e.target.value))} className="form-select text-sm w-[90px] flex-1">
+                          {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      )}
+                      <button type="button" onClick={() => setEditPayDaysLocked(true)} className="p-2 text-blue-600 hover:text-gray-400 flex-shrink-0" title="Lock">
+                        <Check className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">{editPayFreq === "15_days" ? "Two payments per month on these days" : "One payment per month on this day"}</p>
                 </div>
               </>
             )}

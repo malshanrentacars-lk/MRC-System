@@ -24,8 +24,24 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
   const [models, setModels] = useState<string[]>(getModels("Toyota"));
   const [source, setSource] = useState("Company");
   const [payFreq, setPayFreq] = useState("1_month");
-  const [payDays, setPayDays] = useState("");
+  const [payDaysLocked, setPayDaysLocked] = useState(true);
+  const today = new Date();
+  const [payDay1, setPayDay1] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30).getDate());
+  const [payDay2, setPayDay2] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15).getDate());
   const [regNumber, setRegNumber] = useState("");
+  const [currentKm, setCurrentKm] = useState(0);
+  const [nextServiceKm, setNextServiceKm] = useState(5000);
+  const [serviceInterval, setServiceInterval] = useState("5000");
+
+  function handleServiceIntervalChange(interval: string) {
+    setServiceInterval(interval);
+    setNextServiceKm(currentKm + parseInt(interval));
+  }
+
+  function handleCurrentKmChange(km: number) {
+    setCurrentKm(km);
+    setNextServiceKm(km + parseInt(serviceInterval));
+  }
 
   // Rate tiers
   const [monthlyRate, setMonthlyRate] = useState(30000);
@@ -49,7 +65,11 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
 
   function handlePayFreqChange(freq: string) {
     setPayFreq(freq);
-    setPayDays(calcPaymentDays(freq));
+    if (payDaysLocked) {
+      const days = calcPaymentDays(freq).split(',');
+      setPayDay1(parseInt(days[0]));
+      if (days[1]) setPayDay2(parseInt(days[1]));
+    }
   }
 
   function handleMonthlyChange(val: number) {
@@ -143,14 +163,16 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
             </select>
           </div>
 
-          {/* Supplier */}
-          <div>
-            <label className="form-label">Supplier</label>
-            <select name="supplier_id" className="form-select">
-              <option value="">— No Supplier —</option>
-              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
+          {/* Supplier — only shown when source is Supplier */}
+          {source === "Supplier" && (
+            <div>
+              <label className="form-label">Supplier</label>
+              <select name="supplier_id" className="form-select">
+                <option value="">— No Supplier —</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Supplier Payment — only shown when source is Supplier */}
           {source === "Supplier" && (
@@ -173,14 +195,36 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
               </div>
               <div>
                 <label className="form-label">Payment Day(s) of Month</label>
-                <input
-                  name="payment_days"
-                  type="text"
-                  readOnly
-                  value={payDays}
-                  placeholder="Select frequency to auto-fill"
-                  className="form-input bg-gray-50 text-gray-500 cursor-not-allowed"
-                />
+                <input type="hidden" name="payment_days" value={payFreq === "15_days" ? `${payDay1},${payDay2}` : `${payDay1}`} />
+                {payDaysLocked ? (
+                  <div className="flex items-center gap-2">
+                    <input type="text" readOnly value={payFreq === "15_days" ? `${payDay1}, ${payDay2}` : `${payDay1}`} className="form-input bg-gray-50 text-gray-500 cursor-not-allowed flex-1" />
+                    <button type="button" onClick={() => setPayDaysLocked(false)} className="p-2 text-gray-400 hover:text-blue-600 flex-shrink-0" title="Edit payment days">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {payFreq === "15_days" ? (
+                      <>
+                        <select value={payDay1} onChange={e => setPayDay1(parseInt(e.target.value))} className="form-select w-[80px]">
+                          {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                        <span className="text-gray-400">,</span>
+                        <select value={payDay2} onChange={e => setPayDay2(parseInt(e.target.value))} className="form-select w-[80px]">
+                          {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      </>
+                    ) : (
+                      <select value={payDay1} onChange={e => setPayDay1(parseInt(e.target.value))} className="form-select w-[90px] flex-1">
+                        {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    )}
+                    <button type="button" onClick={() => setPayDaysLocked(true)} className="p-2 text-blue-600 hover:text-gray-400 flex-shrink-0" title="Lock">
+                      <Check className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
                 <p className="text-xs text-gray-400 mt-1">
                   {payFreq === "15_days" ? "Two payments per month on these days" : "One payment per month on this day"}
                 </p>
@@ -191,11 +235,20 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
           {/* KM Fields */}
           <div>
             <label className="form-label">Current KM</label>
-            <input name="current_km" type="number" defaultValue="0" className="form-input" />
+            <input name="current_km" type="number" defaultValue="0" className="form-input" onChange={e => handleCurrentKmChange(parseInt(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className="form-label">Service Interval</label>
+            <select className="form-select" value={serviceInterval} onChange={e => handleServiceIntervalChange(e.target.value)}>
+              <option value="3000">3,000 KM</option>
+              <option value="5000">5,000 KM</option>
+              <option value="7000">7,000 KM</option>
+              <option value="10000">10,000 KM</option>
+            </select>
           </div>
           <div>
             <label className="form-label">Next Service KM</label>
-            <input name="next_service_km" type="number" defaultValue="5000" className="form-input" />
+            <input name="next_service_km" type="number" value={nextServiceKm} onChange={e => setNextServiceKm(parseInt(e.target.value) || 0)} className="form-input" />
           </div>
 
           {/* Dates */}

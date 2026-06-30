@@ -14,6 +14,7 @@ export default function NewSupplierClient({ companies }: { companies: Company[] 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [nicNumber, setNicNumber] = useState("");
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,8 +59,8 @@ export default function NewSupplierClient({ companies }: { companies: Company[] 
             <input name="email" type="email" className="form-input" />
           </div>
           <div>
-            <label className="form-label">NIC</label>
-            <input name="nic" className="form-input" />
+            <label className="form-label">NIC <span className="text-red-500">*</span></label>
+            <input name="nic" required className="form-input uppercase" value={nicNumber} onChange={e => setNicNumber(e.target.value.toUpperCase())} />
           </div>
           <div>
             <label className="form-label">Company</label>
@@ -105,8 +106,8 @@ export default function NewSupplierClient({ companies }: { companies: Company[] 
           <div>
             <FileUploader
               label="NIC — Front (JPG/PNG/PDF, max 5MB)"
-              bucket="temp-uploads"
-              folder="suppliers/new"
+              bucket="suppliers"
+              folder={`${nicNumber}/nic_front`}
               accept=".jpg,.jpeg,.png,.pdf"
               multiple={false}
               maxFiles={1}
@@ -116,8 +117,8 @@ export default function NewSupplierClient({ companies }: { companies: Company[] 
           <div>
             <FileUploader
               label="NIC — Back (JPG/PNG/PDF, max 5MB)"
-              bucket="temp-uploads"
-              folder="suppliers/new"
+              bucket="suppliers"
+              folder={`${nicNumber}/nic_back`}
               accept=".jpg,.jpeg,.png,.pdf"
               multiple={false}
               maxFiles={1}

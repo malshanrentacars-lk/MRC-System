@@ -89,6 +89,20 @@ CREATE TABLE IF NOT EXISTS vehicles (
   chassis_number TEXT,
   insurance_expiry DATE,
   revenue_license_expiry DATE,
+  eco_test_expiry DATE,
+  registration_document_url TEXT,
+  registration_document_path TEXT,
+  revenue_license_url TEXT,
+  revenue_license_path TEXT,
+  eco_test_url TEXT,
+  eco_test_path TEXT,
+  insurance_url TEXT,
+  insurance_path TEXT,
+  service_tag_url TEXT,
+  service_tag_path TEXT,
+  monthly_cost NUMERIC(12,2),
+  payment_frequency TEXT,
+  payment_days TEXT,
   notes TEXT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -314,6 +328,7 @@ CREATE POLICY "Deny anon" ON todos FOR ALL TO anon USING (false);
 -- STORAGE BUCKETS
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public) VALUES ('vehicle-photos', 'vehicle-photos', true) ON CONFLICT DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('vehicle-documents', 'vehicle-documents', true) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('agreements', 'agreements', true) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('company-assets', 'company-assets', true) ON CONFLICT DO NOTHING;
 

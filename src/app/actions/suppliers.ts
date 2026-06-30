@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
-import { deleteOldStorageFile } from '@/app/actions/upload';
+import { deleteOldStorageFile, moveStorageFile } from '@/app/actions/upload';
 import { logActivity } from '@/app/actions/activity';
 import { buildDiff } from '@/lib/diff';
 import { readAddressForm } from '@/lib/address';
@@ -65,6 +65,51 @@ function buildSupplierPayload(formData: FormData) {
   };
 }
 
+async function organizeNewSupplierDocuments(
+  nic: string,
+  supplierId: string,
+  docUrls: { nic_front_url?: string | null; nic_back_url?: string | null }
+) {
+  if (!nic) return;
+
+  const docTypes = [
+    { urlField: 'nic_front_url' as const, subfolder: 'nic_front' },
+    { urlField: 'nic_back_url' as const, subfolder: 'nic_back' },
+  ];
+
+  const updates: Record<string, string | null> = {};
+
+  for (const { urlField, subfolder } of docTypes) {
+    const oldUrl = docUrls[urlField];
+    if (!oldUrl) continue;
+
+    const match = oldUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
+    if (!match) continue;
+
+    const bucket = match[1];
+    const oldPath = decodeURIComponent(match[2]);
+
+    if (!oldPath.startsWith('new/')) continue;
+
+    const filename = oldPath.split('/').pop();
+    if (!filename) continue;
+
+    const newPath = `${nic}/${subfolder}/${filename}`;
+
+    const result = await moveStorageFile(bucket, oldPath, newPath);
+    if (result.error) {
+      console.warn(`Failed to move ${subfolder} document: ${result.error}`);
+      continue;
+    }
+
+    updates[urlField] = result.url!;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await supabaseAdmin.from('suppliers').update(updates).eq('id', supplierId);
+  }
+}
+
 export async function createSupplier(formData: FormData) {
   await requireAuth();
 
@@ -82,6 +127,15 @@ export async function createSupplier(formData: FormData) {
       return { data: d2 };
     }
     return { error: error.message };
+  }
+
+  // Move uploaded documents from temp 'suppliers/new/...' to '{nic}/...' structure
+  const nic = payload.nic;
+  if (nic) {
+    await organizeNewSupplierDocuments(nic, data.id, {
+      nic_front_url: payload.nic_front_url,
+      nic_back_url: payload.nic_back_url,
+    });
   }
 
   revalidatePath('/suppliers');

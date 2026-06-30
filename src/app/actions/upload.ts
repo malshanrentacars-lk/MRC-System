@@ -94,3 +94,43 @@ export async function deleteAsset(bucket: string, path: string) {
   return { success: true };
 }
 
+export async function moveStorageFile(bucket: string, oldPath: string, newPath: string) {
+  const { data: fileData, error: downloadError } = await supabaseAdmin.storage
+    .from(bucket)
+    .download(oldPath);
+
+  if (downloadError || !fileData) {
+    return { error: `Failed to read source file: ${downloadError?.message}` };
+  }
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(bucket)
+    .upload(newPath, fileData, { upsert: false });
+
+  if (uploadError) {
+    return { error: `Failed to write destination file: ${uploadError.message}` };
+  }
+
+  const { error: deleteError } = await supabaseAdmin.storage
+    .from(bucket)
+    .remove([oldPath]);
+
+  if (deleteError) {
+    console.warn(`Storage cleanup warning: could not delete ${oldPath}: ${deleteError.message}`);
+  }
+
+  const { data: urlData } = supabaseAdmin.storage.from(bucket).getPublicUrl(newPath);
+  let finalUrl = urlData.publicUrl;
+
+  try {
+    const { data: signed } = await supabaseAdmin.storage
+      .from(bucket)
+      .createSignedUrl(newPath, 60 * 60 * 24 * 365);
+    if (signed?.signedUrl) finalUrl = signed.signedUrl;
+  } catch {
+    // fall back to public URL
+  }
+
+  return { success: true, url: finalUrl, path: newPath };
+}
+

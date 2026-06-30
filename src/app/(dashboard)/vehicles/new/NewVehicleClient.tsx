@@ -25,6 +25,7 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
   const [source, setSource] = useState("Company");
   const [payFreq, setPayFreq] = useState("1_month");
   const [payDays, setPayDays] = useState("");
+  const [regNumber, setRegNumber] = useState("");
 
   // Rate tiers
   const [monthlyRate, setMonthlyRate] = useState(30000);
@@ -88,7 +89,7 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
           {/* Reg Number */}
           <div>
             <label className="form-label">Registration Number <span className="text-red-500">*</span></label>
-            <input name="reg_number" required placeholder="e.g. ABC-1234" className="form-input uppercase" />
+            <input name="reg_number" required placeholder="e.g. ABC-1234" className="form-input uppercase" value={regNumber} onChange={e => setRegNumber(e.target.value.toUpperCase())} />
           </div>
 
           {/* Brand */}
@@ -226,8 +227,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
         <div className="px-5 pb-5">
           <FileUploader
             label="Vehicle Photos (JPG/PNG, max 5MB per photo, up to 6)"
-            bucket="temp-uploads"
-            folder="vehicles/new"
+            bucket="vehicle-documents"
+            folder={`${regNumber || 'vehicles/new'}/photos`}
             accept="image/*"
             multiple={true}
             maxFiles={6}
@@ -238,8 +239,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
         <div className="px-5 pb-5">
           <FileUploader
             label="Vehicle Registration Document (JPG/PDF, max 5MB)"
-            bucket="temp-uploads"
-            folder="vehicles/new"
+            bucket="vehicle-documents"
+            folder={`${regNumber || 'vehicles/new'}/registration`}
             accept=".jpg,.jpeg,.pdf"
             multiple={false}
             maxFiles={1}
@@ -251,8 +252,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <FileUploader
             label="Revenue License (JPG/PDF, max 5MB)"
-            bucket="temp-uploads"
-            folder="vehicles/new"
+            bucket="vehicle-documents"
+            folder={`${regNumber || 'vehicles/new'}/revenue_license`}
             accept=".jpg,.jpeg,.pdf"
             multiple={false}
             maxFiles={1}
@@ -260,8 +261,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
           />
           <FileUploader
             label="Eco Test (JPG/PDF, max 5MB)"
-            bucket="temp-uploads"
-            folder="vehicles/new"
+            bucket="vehicle-documents"
+            folder={`${regNumber || 'vehicles/new'}/eco_test`}
             accept=".jpg,.jpeg,.pdf"
             multiple={false}
             maxFiles={1}
@@ -269,8 +270,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
           />
           <FileUploader
             label="Insurance (JPG/PDF, max 5MB)"
-            bucket="temp-uploads"
-            folder="vehicles/new"
+            bucket="vehicle-documents"
+            folder={`${regNumber || 'vehicles/new'}/insurance`}
             accept=".jpg,.jpeg,.pdf"
             multiple={false}
             maxFiles={1}
@@ -278,8 +279,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
           />
           <FileUploader
             label="Service Tag (JPG/PDF, max 5MB)"
-            bucket="temp-uploads"
-            folder="vehicles/new"
+            bucket="vehicle-documents"
+            folder={`${regNumber || 'vehicles/new'}/service_tag`}
             accept=".jpg,.jpeg,.pdf"
             multiple={false}
             maxFiles={1}

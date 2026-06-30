@@ -23,6 +23,10 @@ interface Props {
   rentals: Rental[];
 }
 
+function getFilename(url: string): string {
+  return url.split('/').pop()?.split('?')[0] || 'Document';
+}
+
 // Default 4 rate tiers
 const DEFAULT_TIERS = [
   { id: "", vehicle_id: "", days_from: 1, days_to: 3, rate_per_day: 0 },
@@ -276,7 +280,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             <TabsList className="border-b-0">
               <TabsTrigger value="details"><Car className="w-3.5 h-3.5 mr-1.5 inline" />Details</TabsTrigger>
               <TabsTrigger value="images"><ImageIcon className="w-3.5 h-3.5 mr-1.5 inline" />Images</TabsTrigger>
-              <TabsTrigger value="insurance"><Shield className="w-3.5 h-3.5 mr-1.5 inline" />Insurance &amp; Service</TabsTrigger>
+              <TabsTrigger value="insurance"><Shield className="w-3.5 h-3.5 mr-1.5 inline" />Insurance & Service</TabsTrigger>
               <TabsTrigger value="pricing"><DollarSign className="w-3.5 h-3.5 mr-1.5 inline" />Pricing</TabsTrigger>
               <TabsTrigger value="rentals"><ClipboardList className="w-3.5 h-3.5 mr-1.5 inline" />Rentals</TabsTrigger>
               <TabsTrigger value="financials"><TrendingUp className="w-3.5 h-3.5 mr-1.5 inline" />Financials</TabsTrigger>
@@ -374,7 +378,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-green-50 rounded-lg border border-green-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Registration Document</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.registration_document_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.registration_document_url)}</p>
                       </div>
                       <a href={vehicle.registration_document_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -389,7 +393,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-green-50 rounded-lg border border-green-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Revenue License</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.revenue_license_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.revenue_license_url)}</p>
                       </div>
                       <a href={vehicle.revenue_license_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -404,7 +408,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-green-50 rounded-lg border border-green-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Eco Test</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.eco_test_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.eco_test_url)}</p>
                       </div>
                       <a href={vehicle.eco_test_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -419,7 +423,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-green-50 rounded-lg border border-green-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Insurance</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.insurance_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.insurance_url)}</p>
                       </div>
                       <a href={vehicle.insurance_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -434,7 +438,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-green-50 rounded-lg border border-green-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Service Tag</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.service_tag_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.service_tag_url)}</p>
                       </div>
                       <a href={vehicle.service_tag_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -467,7 +471,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-gray-50 rounded-lg border border-gray-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Registration Document</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.registration_document_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.registration_document_url)}</p>
                       </div>
                       <a href={vehicle.registration_document_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -483,7 +487,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-gray-50 rounded-lg border border-gray-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Revenue License</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.revenue_license_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.revenue_license_url)}</p>
                       </div>
                       <a href={vehicle.revenue_license_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -499,7 +503,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-gray-50 rounded-lg border border-gray-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Eco Test</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.eco_test_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.eco_test_url)}</p>
                       </div>
                       <a href={vehicle.eco_test_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -515,7 +519,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-gray-50 rounded-lg border border-gray-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Insurance</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.insurance_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.insurance_url)}</p>
                       </div>
                       <a href={vehicle.insurance_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -531,7 +535,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                     <div className="flex items-center gap-3 bg-gray-50 rounded-lg border border-gray-200 p-4">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">Service Tag</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{vehicle.service_tag_url.split('/').pop()}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.service_tag_url)}</p>
                       </div>
                       <a href={vehicle.service_tag_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
                     </div>
@@ -580,7 +584,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
           <TabsContent value="insurance" className="mt-0">
             <div className="p-5 space-y-6">
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Documents &amp; Expiry Dates</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Documents & Expiry Dates</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     { label: "Insurance Expiry", value: vehicle.insurance_expiry, icon: "🛡️" },
@@ -885,7 +889,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 label="Registration Document (JPG/PDF, max 5MB)"
                 fieldName="registration_document"
                 bucket="vehicle-documents"
-                folder={vehicle.id}
+                folder={`${vehicle.reg_number}/registration`}
                 accept=".jpg,.jpeg,.pdf"
                 multiple={false}
                 maxFiles={1}
@@ -895,7 +899,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 label="Revenue License (JPG/PDF, max 5MB)"
                 fieldName="revenue_license"
                 bucket="vehicle-documents"
-                folder={vehicle.id}
+                folder={`${vehicle.reg_number}/revenue_license`}
                 accept=".jpg,.jpeg,.pdf"
                 multiple={false}
                 maxFiles={1}
@@ -905,7 +909,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 label="Eco Test (JPG/PDF, max 5MB)"
                 fieldName="eco_test"
                 bucket="vehicle-documents"
-                folder={vehicle.id}
+                folder={`${vehicle.reg_number}/eco_test`}
                 accept=".jpg,.jpeg,.pdf"
                 multiple={false}
                 maxFiles={1}
@@ -915,7 +919,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 label="Insurance (JPG/PDF, max 5MB)"
                 fieldName="insurance"
                 bucket="vehicle-documents"
-                folder={vehicle.id}
+                folder={`${vehicle.reg_number}/insurance`}
                 accept=".jpg,.jpeg,.pdf"
                 multiple={false}
                 maxFiles={1}
@@ -925,7 +929,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 label="Service Tag (JPG/PDF, max 5MB)"
                 fieldName="service_tag"
                 bucket="vehicle-documents"
-                folder={vehicle.id}
+                folder={`${vehicle.reg_number}/service_tag`}
                 accept=".jpg,.jpeg,.pdf"
                 multiple={false}
                 maxFiles={1}
@@ -940,7 +944,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             <FileUploader
               label="(JPG/PNG, max 5MB per photo, up to 6)"
               bucket="vehicle-photos"
-              folder={vehicle.id}
+              folder={vehicle.reg_number}
               accept="image/*"
               multiple={true}
               maxFiles={6}

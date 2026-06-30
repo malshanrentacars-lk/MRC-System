@@ -321,8 +321,8 @@ export default function SupplierDetailClient({ supplier, vehicles, companies }: 
           <div className="md:col-span-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 border-t border-gray-100 pt-4">Documents & Photos</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <FileUploader label="NIC Front (JPG/PNG/PDF, max 5MB)" fieldName="nic_front" bucket="suppliers" folder={supplier.id} maxFiles={1} initialFiles={supplier.nic_front_url ? [{ url: supplier.nic_front_url, path: supplier.nic_front_url }] : []} />
-              <FileUploader label="NIC Back (JPG/PNG/PDF, max 5MB)" fieldName="nic_back" bucket="suppliers" folder={supplier.id} maxFiles={1} initialFiles={supplier.nic_back_url ? [{ url: supplier.nic_back_url, path: supplier.nic_back_url }] : []} />
+              <FileUploader label="NIC Front (JPG/PNG/PDF, max 5MB)" fieldName="nic_front" bucket="suppliers" folder={`${supplier.nic || supplier.id}/nic_front`} maxFiles={1} initialFiles={supplier.nic_front_url ? [{ url: supplier.nic_front_url, path: supplier.nic_front_url }] : []} />
+              <FileUploader label="NIC Back (JPG/PNG/PDF, max 5MB)" fieldName="nic_back" bucket="suppliers" folder={`${supplier.nic || supplier.id}/nic_back`} maxFiles={1} initialFiles={supplier.nic_back_url ? [{ url: supplier.nic_back_url, path: supplier.nic_back_url }] : []} />
             </div>
           </div>
           {error && <p className="md:col-span-3 text-sm text-red-600">{error}</p>}

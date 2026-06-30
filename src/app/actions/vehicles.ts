@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
-import { deleteOldStorageFile } from '@/app/actions/upload';
+import { deleteOldStorageFile, moveStorageFile } from '@/app/actions/upload';
 import { logActivity } from '@/app/actions/activity';
 import { buildDiff } from '@/lib/diff';
 import { Vehicle } from '@/types';
@@ -129,6 +129,56 @@ function parseVehicleFields(formData: FormData) {
   };
 }
 
+async function organizeNewVehicleDocuments(
+  regNumber: string,
+  vehicleId: string,
+  docData: {
+    registration_document_url?: string | null;
+    registration_document_path?: string | null;
+    revenue_license_url?: string | null;
+    revenue_license_path?: string | null;
+    eco_test_url?: string | null;
+    eco_test_path?: string | null;
+    insurance_url?: string | null;
+    insurance_path?: string | null;
+    service_tag_url?: string | null;
+    service_tag_path?: string | null;
+  }
+) {
+  const docTypes = [
+    { urlField: 'registration_document_url' as const, pathField: 'registration_document_path' as const, subfolder: 'registration' },
+    { urlField: 'revenue_license_url' as const, pathField: 'revenue_license_path' as const, subfolder: 'revenue_license' },
+    { urlField: 'eco_test_url' as const, pathField: 'eco_test_path' as const, subfolder: 'eco_test' },
+    { urlField: 'insurance_url' as const, pathField: 'insurance_path' as const, subfolder: 'insurance' },
+    { urlField: 'service_tag_url' as const, pathField: 'service_tag_path' as const, subfolder: 'service_tag' },
+  ];
+
+  const updates: Record<string, string | null> = {};
+
+  for (const { urlField, pathField, subfolder } of docTypes) {
+    const oldPath = docData[pathField];
+    if (!oldPath || !oldPath.startsWith('vehicles/new/')) continue;
+
+    const filename = oldPath.split('/').pop();
+    if (!filename) continue;
+
+    const newPath = `${regNumber}/${subfolder}/${filename}`;
+
+    const result = await moveStorageFile('vehicle-documents', oldPath, newPath);
+    if (result.error) {
+      console.warn(`Failed to move ${subfolder} document: ${result.error}`);
+      continue;
+    }
+
+    updates[urlField] = result.url!;
+    updates[pathField] = result.path!;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await supabaseAdmin.from('vehicles').update(updates).eq('id', vehicleId);
+  }
+}
+
 export async function createVehicle(formData: FormData) {
   await requireAuth();
 
@@ -218,6 +268,12 @@ export async function createVehicle(formData: FormData) {
       is_primary: i === 0, // first photo is primary
     }));
     await supabaseAdmin.from('vehicle_photos').insert(photoInserts);
+  }
+
+  // Move uploaded documents from temp 'vehicles/new/...' to '{reg_number}/...' structure
+  const regNumber = vehicleData.reg_number;
+  if (regNumber) {
+    await organizeNewVehicleDocuments(regNumber, data.id, vehicleData);
   }
 
   revalidatePath('/vehicles');

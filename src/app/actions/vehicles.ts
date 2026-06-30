@@ -109,6 +109,7 @@ function parseVehicleFields(formData: FormData) {
     current_km: parseInt(formData.get('current_km') as string) || 0,
     next_service_km: parseInt(formData.get('next_service_km') as string) || 5000,
     next_service_date: formData.get('next_service_date') as string || null,
+    last_service_date: formData.get('last_service_date') as string || null,
     insurance_expiry: formData.get('insurance_expiry') as string || null,
     revenue_license_expiry: formData.get('revenue_license_expiry') as string || null,
     eco_test_expiry: formData.get('eco_test_expiry') as string || null,

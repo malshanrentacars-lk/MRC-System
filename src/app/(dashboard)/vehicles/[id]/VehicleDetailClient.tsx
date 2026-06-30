@@ -217,10 +217,25 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
   const [editInterval, setEditInterval] = useState("5000");
   const [editCurrentKm, setEditCurrentKm] = useState(vehicle.current_km || 0);
   const [editNextServiceKm, setEditNextServiceKm] = useState(vehicle.next_service_km || 5000);
+  const [editLastServiceDate, setEditLastServiceDate] = useState(vehicle.last_service_date || "");
+  const [editNextServiceDate, setEditNextServiceDate] = useState(vehicle.next_service_date || "");
+
+  function calcEditNextServiceDate(lastDate: string, interval: string) {
+    if (!lastDate) return "";
+    const date = new Date(lastDate + "T00:00:00");
+    date.setDate(date.getDate() + parseInt(interval) / 100);
+    return date.toISOString().split("T")[0];
+  }
+
+  function handleEditLastServiceDateChange(date: string) {
+    setEditLastServiceDate(date);
+    setEditNextServiceDate(calcEditNextServiceDate(date, editInterval));
+  }
 
   function handleEditIntervalChange(interval: string) {
     setEditInterval(interval);
     setEditNextServiceKm(editCurrentKm + parseInt(interval));
+    setEditNextServiceDate(calcEditNextServiceDate(editLastServiceDate, interval));
   }
 
   function handleEditCurrentKmChange(km: number) {
@@ -787,19 +802,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </div>
             ))}
             <div>
-              <label className="form-label text-sm">Service Interval</label>
-              <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
-                <option value="3000">3,000 KM</option>
-                <option value="5000">5,000 KM</option>
-                <option value="7000">7,000 KM</option>
-                <option value="10000">10,000 KM</option>
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Next Service KM</label>
-              <input name="next_service_km" type="number" value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
-            </div>
-            <div>
               <label className="form-label text-sm">Type</label>
               <select name="type" defaultValue={vehicle.type} className="form-select text-sm">
                 {["Sedan","Hatchback","SUV","Van","Pickup","Bus","Other"].map(t => <option key={t} value={t}>{t}</option>)}
@@ -886,12 +888,25 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </>
             )}
             <div>
-              <label className="form-label text-sm">Next Service Date</label>
-              <input name="next_service_date" type="date" defaultValue={vehicle.next_service_date ?? ""} className="form-input text-sm" />
+              <label className="form-label text-sm">Last Service Date</label>
+              <input name="last_service_date" type="date" value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Last Service Date</label>
-              <input name="last_service_date" type="date" defaultValue={vehicle.last_service_date ?? ""} className="form-input text-sm" />
+              <label className="form-label text-sm">Service Interval</label>
+              <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
+                <option value="3000">3,000 KM</option>
+                <option value="5000">5,000 KM</option>
+                <option value="7000">7,000 KM</option>
+                <option value="10000">10,000 KM</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label text-sm">Next Service KM</label>
+              <input name="next_service_km" type="number" value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+            </div>
+            <div>
+              <label className="form-label text-sm">Next Service Date</label>
+              <input name="next_service_date" type="date" value={editNextServiceDate} onChange={e => setEditNextServiceDate(e.target.value)} className="form-input text-sm" />
             </div>
             <div>
               <label className="form-label text-sm">Insurance Expiry</label>

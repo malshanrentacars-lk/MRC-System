@@ -32,10 +32,25 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
   const [currentKm, setCurrentKm] = useState(0);
   const [nextServiceKm, setNextServiceKm] = useState(5000);
   const [serviceInterval, setServiceInterval] = useState("5000");
+  const [lastServiceDate, setLastServiceDate] = useState("");
+  const [nextServiceDate, setNextServiceDate] = useState("");
+
+  function calcNextServiceDate(lastDate: string, interval: string) {
+    if (!lastDate) return "";
+    const date = new Date(lastDate + "T00:00:00");
+    date.setDate(date.getDate() + parseInt(interval) / 100);
+    return date.toISOString().split("T")[0];
+  }
+
+  function handleLastServiceDateChange(date: string) {
+    setLastServiceDate(date);
+    setNextServiceDate(calcNextServiceDate(date, serviceInterval));
+  }
 
   function handleServiceIntervalChange(interval: string) {
     setServiceInterval(interval);
     setNextServiceKm(currentKm + parseInt(interval));
+    setNextServiceDate(calcNextServiceDate(lastServiceDate, interval));
   }
 
   function handleCurrentKmChange(km: number) {
@@ -237,6 +252,12 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
             <label className="form-label">Current KM</label>
             <input name="current_km" type="number" defaultValue="0" className="form-input" onChange={e => handleCurrentKmChange(parseInt(e.target.value) || 0)} />
           </div>
+
+          {/* Dates */}
+          <div>
+            <label className="form-label">Last Service Date</label>
+            <input name="last_service_date" type="date" className="form-input" value={lastServiceDate} onChange={e => handleLastServiceDateChange(e.target.value)} />
+          </div>
           <div>
             <label className="form-label">Service Interval</label>
             <select className="form-select" value={serviceInterval} onChange={e => handleServiceIntervalChange(e.target.value)}>
@@ -250,11 +271,9 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
             <label className="form-label">Next Service KM</label>
             <input name="next_service_km" type="number" value={nextServiceKm} onChange={e => setNextServiceKm(parseInt(e.target.value) || 0)} className="form-input" />
           </div>
-
-          {/* Dates */}
           <div>
             <label className="form-label">Next Service Date</label>
-            <input name="next_service_date" type="date" className="form-input" />
+            <input name="next_service_date" type="date" className="form-input" value={nextServiceDate} onChange={e => setNextServiceDate(e.target.value)} />
           </div>
           <div>
             <label className="form-label">Insurance Expiry</label>

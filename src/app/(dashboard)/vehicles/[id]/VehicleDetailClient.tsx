@@ -13,7 +13,7 @@ import {
   Edit, Trash2, Upload, X, Plus, Minus, Camera, Pencil, Check,
   Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown
 } from "lucide-react";
-import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES } from "@/lib/vehicleData";
+import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES, calcTiersFromMonthly } from "@/lib/vehicleData";
 import FileUploader, { UploadedFile } from "@/components/shared/FileUploader";
 
 interface Props {
@@ -197,6 +197,13 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     ? vehicle.rate_tiers.slice(0, 4)
     : DEFAULT_TIERS.map(t => ({ ...t, vehicle_id: vehicle.id }));
   const [rateTiers, setRateTiers] = useState(initTiers);
+  const [editMonthlyRate, setEditMonthlyRate] = useState<number | string>(vehicle.daily_rate * 30 || "");
+
+  function handleMonthlyRateChange(val: string) {
+    setEditMonthlyRate(val);
+    const num = parseInt(val);
+    if (!isNaN(num) && num > 0) setRateTiers(calcTiersFromMonthly(num) as any);
+  }
   
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -288,6 +295,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     setError(null);
     fd.set("brand", editBrand);
     fd.set("model", editModel);
+    fd.set("daily_rate", rateTiers.length > 0 ? rateTiers[0].rate_per_day.toString() : "0");
     fd.set("rate_tiers", JSON.stringify(rateTiers.map(t => ({ days_from: t.days_from, days_to: t.days_to, rate_per_day: t.rate_per_day }))));
     startTransition(async () => {
       const result = await updateVehicle(vehicle.id, fd);
@@ -318,7 +326,17 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     <div>
       {/* Edit form — visible when editing */}
       {editing && (
-            <form id="vehicle-edit-form" onSubmit={handleEditSubmit} className="p-5 border-b border-gray-100 bg-blue-50/30">
+        <div className="section-card mb-4">
+          <div className="px-5 py-3 border-b border-gray-100 bg-blue-50 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">Edit Vehicle</h2>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} className="btn-secondary text-sm">Cancel</button>
+              <button type="submit" form="vehicle-edit-form" disabled={isPending} className="btn-primary text-sm">
+                {isPending ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+          <form id="vehicle-edit-form" onSubmit={handleEditSubmit} className="p-5">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="form-label text-sm">Brand <span className="text-red-500 ml-0.5">*</span></label>
@@ -360,12 +378,10 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                   </select>
                 </div>
                 <div>
-                  <label className="form-label text-sm">Status <span className="text-red-500 ml-0.5">*</span></label>
-                  <select name="status" required defaultValue={vehicle.status} className="form-select text-sm">
-                    <option value="available">Available</option>
-                    <option value="rented">Rented</option>
-                    <option value="booked">Booked</option>
-                    <option value="in_garage">In Garage</option>
+                  <label className="form-label text-sm">Transmission <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="transmission" required defaultValue={vehicle.transmission ?? ""} className="form-select text-sm">
+                    <option value="">— Select —</option>
+                    {TRANSMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
@@ -384,10 +400,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                   </select>
                 </div>
                 )}
-                <div>
-                  <label className="form-label text-sm">Daily Rate (LKR) <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="daily_rate" type="number" required defaultValue={vehicle.daily_rate.toString()} className="form-input text-sm" />
-                </div>
                 <div>
                   <label className="form-label text-sm">Current KM <span className="text-red-500 ml-0.5">*</span></label>
                   <input name="current_km" type="number" required defaultValue={(vehicle.current_km || "").toString()} onChange={e => setEditCurrentKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
@@ -578,6 +590,13 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               {/* Rate Tiers */}
               <div className="border-t border-gray-100 pt-4 mt-4">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Rate Tiers</p>
+                <div className="flex items-end gap-3 mb-4">
+                  <div className="flex-1 max-w-[200px]">
+                    <label className="form-label text-sm">Monthly Rate (LKR)</label>
+                    <input type="number" value={editMonthlyRate} onChange={e => handleMonthlyRateChange(e.target.value)} className="form-input text-sm" />
+                  </div>
+                  <p className="text-xs text-gray-400 pb-2">Auto-calculates tiers below</p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {rateTiers.map((tier, i) => (
                     <div key={i} className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 px-4 py-3">
@@ -601,8 +620,10 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 </div>
               </div>
             </form>
+          </div>
           )}
 
+      {!editing && (
       <Tabs defaultValue="details">
         <div className="section-card">
           <div className="px-5 pt-4 flex items-center justify-between border-b border-gray-100 pb-0 flex-wrap gap-3">
@@ -615,14 +636,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               <TabsTrigger value="financials"><TrendingUp className="w-3.5 h-3.5 mr-1.5 inline" />Financials</TabsTrigger>
             </TabsList>
             <div className="flex gap-2 mb-2">
-              {editing ? (
-                <>
-                  <button type="submit" form="vehicle-edit-form" disabled={isPending} className="btn-primary text-sm">
-                    {isPending ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button type="button" onClick={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} className="btn-secondary text-sm">Cancel</button>
-                </>
-              ) : (
+              {!editing && (
                 <>
                   <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><Edit className="w-3.5 h-3.5" /> Edit</button>
                   <button onClick={() => setConfirmDelete(true)} className="btn-danger text-sm"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
@@ -1063,6 +1077,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
           </TabsContent>
         </div>
       </Tabs>
+      )}
 
       <PasswordConfirmModal open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete Vehicle" description="This will permanently deactivate this vehicle." onConfirm={performDelete} />
     </div>

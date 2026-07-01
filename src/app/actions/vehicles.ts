@@ -105,6 +105,7 @@ function parseVehicleFields(formData: FormData) {
     color: formData.get('color') as string || null,
     type: formData.get('type') as string,
     fuel_type: formData.get('fuel_type') as string || null,
+    transmission: formData.get('transmission') as string || null,
     source: formData.get('source') as string,
     supplier_id: formData.get('supplier_id') as string || null,
     current_km: parseInt(formData.get('current_km') as string) || 0,
@@ -213,7 +214,7 @@ export async function createVehicle(formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
-        rental_start_date, renew_date, fuel_type,
+        rental_start_date, renew_date, fuel_type, transmission,
         ...dataWithoutDocs 
       } = vehicleData;
       const { data: d2, error: e2 } = await supabaseAdmin
@@ -328,7 +329,7 @@ export async function updateVehicle(id: string, formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
-        rental_start_date, renew_date, fuel_type,
+        rental_start_date, renew_date, fuel_type, transmission,
         ...dataWithoutDocs 
       } = updateData;
       const { error: e2 } = await supabaseAdmin.from('vehicles').update(dataWithoutDocs).eq('id', id);

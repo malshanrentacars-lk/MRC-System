@@ -213,6 +213,15 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
             </select>
           </div>
 
+          {/* Transmission */}
+          <div>
+            <label className="form-label">Transmission <span className="text-red-500">*</span></label>
+            <select name="transmission" required className="form-select">
+              <option value="">— Select —</option>
+              {TRANSMISSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
           {/* Source */}
           <div>
             <label className="form-label">Source <span className="text-red-500">*</span></label>

@@ -209,6 +209,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
   const [editSource, setEditSource] = useState<"Company" | "Supplier">(
     (vehicle.source as "Company" | "Supplier") || "Company"
   );
+  const [editFuelType, setEditFuelType] = useState(vehicle.fuel_type || "Petrol");
   const [editPayFreq, setEditPayFreq] = useState(vehicle.payment_frequency || "1_month");
   const payDayValues = (vehicle.payment_days || "").split(",");
   const [editPayDay1, setEditPayDay1] = useState(payDayValues[0] ? parseInt(payDayValues[0]) : 30);
@@ -271,6 +272,21 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
   function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+
+    const regDoc = (fd.get("registration_document_url") as string) || "";
+    const revLic = (fd.get("revenue_license_url") as string) || "";
+    const insurance = (fd.get("insurance_url") as string) || "";
+    if (!regDoc || !revLic || !insurance) {
+      setError("Please upload Vehicle Registration Document, Revenue License, and Insurance.");
+      return;
+    }
+    const ecoTest = (fd.get("eco_test_url") as string) || "";
+    if ((editFuelType === "Petrol" || editFuelType === "Diesel") && !ecoTest) {
+      setError("Please upload Eco Test document (required for Petrol/Diesel vehicles).");
+      return;
+    }
+
+    setError(null);
     // Explicitly set controlled dropdown values in case they differ
     fd.set("brand", editBrand);
     fd.set("model", editModel);
@@ -779,8 +795,8 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </select>
             </div>
             <div>
-              <label className="form-label text-sm">Year</label>
-              <select name="year" defaultValue={vehicle.year?.toString() ?? ""} className="form-select text-sm">
+              <label className="form-label text-sm">Year <span className="text-red-500 ml-0.5">*</span></label>
+              <select name="year" required defaultValue={vehicle.year?.toString() ?? ""} className="form-select text-sm">
                 <option value="">— Select —</option>
                 {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
@@ -794,7 +810,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             </div>
             {[
               { name: "daily_rate", label: "Daily Rate (LKR)", defaultValue: vehicle.daily_rate.toString(), type: "number", required: true },
-              { name: "current_km", label: "Current KM", defaultValue: (vehicle.current_km || "").toString(), type: "number" },
+              { name: "current_km", label: "Current KM", defaultValue: (vehicle.current_km || "").toString(), type: "number", required: true },
             ].map(f => (
               <div key={f.name}>
                 <label className="form-label text-sm">{f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}</label>
@@ -803,14 +819,21 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </div>
             ))}
             <div>
-              <label className="form-label text-sm">Type</label>
-              <select name="type" defaultValue={vehicle.type} className="form-select text-sm">
+              <label className="form-label text-sm">Type <span className="text-red-500 ml-0.5">*</span></label>
+              <select name="type" required defaultValue={vehicle.type} className="form-select text-sm">
                 {["Sedan","Hatchback","SUV","Van","Pickup","Bus","Other"].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="form-label text-sm">Status</label>
-              <select name="status" defaultValue={vehicle.status} className="form-select text-sm">
+              <label className="form-label text-sm">Fuel Type <span className="text-red-500 ml-0.5">*</span></label>
+              <select name="fuel_type" required value={editFuelType} onChange={e => setEditFuelType(e.target.value)} className="form-select text-sm">
+                <option value="">— Select —</option>
+                {FUEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="form-label text-sm">Status <span className="text-red-500 ml-0.5">*</span></label>
+              <select name="status" required defaultValue={vehicle.status} className="form-select text-sm">
                 <option value="available">Available</option>
                 <option value="rented">Rented</option>
                 <option value="booked">Booked</option>
@@ -818,16 +841,16 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </select>
             </div>
             <div>
-              <label className="form-label text-sm">Source</label>
-              <select name="source" value={editSource} onChange={e => setEditSource(e.target.value as "Company" | "Supplier")} className="form-select text-sm">
+              <label className="form-label text-sm">Source <span className="text-red-500 ml-0.5">*</span></label>
+              <select name="source" required value={editSource} onChange={e => setEditSource(e.target.value as "Company" | "Supplier")} className="form-select text-sm">
                 <option value="Company">Company</option>
                 <option value="Supplier">Supplier</option>
               </select>
             </div>
             {editSource === "Supplier" && (
             <div>
-              <label className="form-label text-sm">Supplier</label>
-              <select name="supplier_id" defaultValue={vehicle.supplier_id ?? ""} className="form-select text-sm">
+              <label className="form-label text-sm">Supplier <span className="text-red-500 ml-0.5">*</span></label>
+              <select name="supplier_id" required defaultValue={vehicle.supplier_id ?? ""} className="form-select text-sm">
                 <option value="">— No Supplier —</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -837,13 +860,14 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             {editSource === "Supplier" && (
               <>
                 <div>
-                  <label className="form-label text-sm">Monthly Cost (Rs.)</label>
-                  <input name="monthly_cost" type="number" min="0" step="0.01" defaultValue={vehicle.monthly_cost ?? ""} className="form-input text-sm" />
+                  <label className="form-label text-sm">Monthly Cost (Rs.) <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="monthly_cost" type="number" min="0" step="0.01" required defaultValue={vehicle.monthly_cost ?? ""} className="form-input text-sm" />
                 </div>
                 <div>
-                  <label className="form-label text-sm">Payment Frequency</label>
+                  <label className="form-label text-sm">Payment Frequency <span className="text-red-500 ml-0.5">*</span></label>
                   <select
                     name="payment_frequency"
+                    required
                     className="form-select text-sm"
                     value={editPayFreq}
                     onChange={e => handleEditPayFreqChange(e.target.value)}
@@ -889,15 +913,15 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </>
             )}
             <div>
-              <label className="form-label text-sm">Last Service Date</label>
-              <input name="last_service_date" type="date" value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
+              <label className="form-label text-sm">Last Service Date <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="last_service_date" type="date" required value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Last Service KM</label>
-              <input name="last_service_km" type="number" value={editLastServiceKm || ""} onChange={e => handleEditLastServiceKmChange(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+              <label className="form-label text-sm">Last Service KM <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="last_service_km" type="number" required value={editLastServiceKm || ""} onChange={e => handleEditLastServiceKmChange(parseInt(e.target.value) || 0)} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Service Interval</label>
+              <label className="form-label text-sm">Service Interval <span className="text-red-500 ml-0.5">*</span></label>
               <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
                 <option value="3000">3,000 KM</option>
                 <option value="5000">5,000 KM</option>
@@ -906,32 +930,32 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               </select>
             </div>
             <div>
-              <label className="form-label text-sm">Next Service KM</label>
-              <input name="next_service_km" type="number" value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+              <label className="form-label text-sm">Next Service KM <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="next_service_km" type="number" required value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Next Service Date</label>
-              <input name="next_service_date" type="date" value={editNextServiceDate} onChange={e => setEditNextServiceDate(e.target.value)} className="form-input text-sm" />
+              <label className="form-label text-sm">Next Service Date <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="next_service_date" type="date" required value={editNextServiceDate} onChange={e => setEditNextServiceDate(e.target.value)} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Insurance Expiry</label>
-              <input name="insurance_expiry" type="date" defaultValue={vehicle.insurance_expiry ?? ""} className="form-input text-sm" />
+              <label className="form-label text-sm">Insurance Expiry <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="insurance_expiry" type="date" required defaultValue={vehicle.insurance_expiry ?? ""} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Revenue License Expiry</label>
-              <input name="revenue_license_expiry" type="date" defaultValue={vehicle.revenue_license_expiry ?? ""} className="form-input text-sm" />
+              <label className="form-label text-sm">Revenue License Expiry <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="revenue_license_expiry" type="date" required defaultValue={vehicle.revenue_license_expiry ?? ""} className="form-input text-sm" />
             </div>
             <div>
               <label className="form-label text-sm">Eco Test Expiry</label>
               <input name="eco_test_expiry" type="date" defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Rental Start Date</label>
-              <input name="rental_start_date" type="date" defaultValue={vehicle.rental_start_date ?? ""} className="form-input text-sm" />
+              <label className="form-label text-sm">Rental Start Date <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="rental_start_date" type="date" required defaultValue={vehicle.rental_start_date ?? ""} className="form-input text-sm" />
             </div>
             <div>
-              <label className="form-label text-sm">Renew Date</label>
-              <input name="renew_date" type="date" defaultValue={vehicle.renew_date ?? ""} className="form-input text-sm" />
+              <label className="form-label text-sm">Renew Date <span className="text-red-500 ml-0.5">*</span></label>
+              <input name="renew_date" type="date" required defaultValue={vehicle.renew_date ?? ""} className="form-input text-sm" />
             </div>
           </div>
 
@@ -971,7 +995,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Documents</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FileUploader
-                label="Registration Document (JPG/PDF, max 5MB)"
+                label="Registration Document (JPG/PDF, max 5MB) *"
                 fieldName="registration_document"
                 bucket="vehicle-documents"
                 folder={`${vehicle.reg_number}/registration`}
@@ -981,7 +1005,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 initialFiles={vehicle.registration_document_url ? [{ url: vehicle.registration_document_url, path: vehicle.registration_document_path || "" }] : []}
               />
               <FileUploader
-                label="Revenue License (JPG/PDF, max 5MB)"
+                label="Revenue License (JPG/PDF, max 5MB) *"
                 fieldName="revenue_license"
                 bucket="vehicle-documents"
                 folder={`${vehicle.reg_number}/revenue_license`}
@@ -991,7 +1015,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 initialFiles={vehicle.revenue_license_url ? [{ url: vehicle.revenue_license_url, path: vehicle.revenue_license_path || "" }] : []}
               />
               <FileUploader
-                label="Eco Test (JPG/PDF, max 5MB)"
+                label={`Eco Test (JPG/PDF, max 5MB)${editFuelType === "Petrol" || editFuelType === "Diesel" ? " *" : ""}`}
                 fieldName="eco_test"
                 bucket="vehicle-documents"
                 folder={`${vehicle.reg_number}/eco_test`}
@@ -1001,7 +1025,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 initialFiles={vehicle.eco_test_url ? [{ url: vehicle.eco_test_url, path: vehicle.eco_test_path || "" }] : []}
               />
               <FileUploader
-                label="Insurance (JPG/PDF, max 5MB)"
+                label="Insurance (JPG/PDF, max 5MB) *"
                 fieldName="insurance"
                 bucket="vehicle-documents"
                 folder={`${vehicle.reg_number}/insurance`}

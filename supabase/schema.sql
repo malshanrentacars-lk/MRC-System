@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   year INTEGER,
   color TEXT,
   type TEXT DEFAULT 'Sedan' CHECK (type IN ('Sedan', 'Hatchback', 'SUV', 'Van', 'Pickup', 'Bus', 'Other')),
+  fuel_type TEXT DEFAULT 'Petrol' CHECK (fuel_type IN ('Petrol', 'Diesel', 'Hybrid', 'Electric', 'Gas', 'Other')),
   source TEXT DEFAULT 'Company' CHECK (source IN ('Company', 'Supplier')),
   supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'available' CHECK (status IN ('available', 'rented', 'booked', 'in_garage')),

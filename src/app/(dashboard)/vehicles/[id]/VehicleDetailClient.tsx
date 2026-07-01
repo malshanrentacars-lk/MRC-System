@@ -9,7 +9,6 @@ import { updateVehicle, deleteVehicle, uploadVehiclePhoto, deleteVehiclePhoto } 
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import EditModal from "@/components/shared/EditModal";
 import {
   Edit, Trash2, Upload, X, Plus, Minus, Camera, Pencil, Check,
   Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown
@@ -287,22 +286,13 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     }
 
     setError(null);
-    // Explicitly set controlled dropdown values in case they differ
     fd.set("brand", editBrand);
     fd.set("model", editModel);
     fd.set("rate_tiers", JSON.stringify(rateTiers.map(t => ({ days_from: t.days_from, days_to: t.days_to, rate_per_day: t.rate_per_day }))));
-    setEditFormData(fd);
-    setConfirmEdit(true);
-  }
-
-  async function performEdit() {
-    if (!editFormData) return;
     startTransition(async () => {
-      const result = await updateVehicle(vehicle.id, editFormData);
+      const result = await updateVehicle(vehicle.id, fd);
       if (result.error) { setError(result.error); return; }
       setEditing(false);
-      // push forces a new navigation so useState(initial) re-initialises
-      // with the latest photos from the server
       router.push(`/vehicles/${vehicle.id}`);
       router.refresh();
     });
@@ -326,8 +316,295 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
 
   return (
     <div>
+      {/* Edit form — visible when editing */}
+      {editing && (
+            <form id="vehicle-edit-form" onSubmit={handleEditSubmit} className="p-5 border-b border-gray-100 bg-blue-50/30">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="form-label text-sm">Brand <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="brand" value={editBrand} onChange={handleEditBrandChange} className="form-select text-sm">
+                    {BRANDS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Model <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="model" value={editModel} onChange={e => setEditModel(e.target.value)} className="form-select text-sm">
+                    {availableModels.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Year <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="year" required defaultValue={vehicle.year?.toString() ?? ""} className="form-select text-sm">
+                    <option value="">— Select —</option>
+                    {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Color</label>
+                  <select name="color" defaultValue={vehicle.color ?? ""} className="form-select text-sm">
+                    <option value="">— Select —</option>
+                    {COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Type <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="type" required defaultValue={vehicle.type} className="form-select text-sm">
+                    {["Sedan","Hatchback","SUV","Van","Pickup","Bus","Other"].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Fuel Type <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="fuel_type" required value={editFuelType} onChange={e => setEditFuelType(e.target.value)} className="form-select text-sm">
+                    <option value="">— Select —</option>
+                    {FUEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Status <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="status" required defaultValue={vehicle.status} className="form-select text-sm">
+                    <option value="available">Available</option>
+                    <option value="rented">Rented</option>
+                    <option value="booked">Booked</option>
+                    <option value="in_garage">In Garage</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Source <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="source" required value={editSource} onChange={e => setEditSource(e.target.value as "Company" | "Supplier")} className="form-select text-sm">
+                    <option value="Company">Company</option>
+                    <option value="Supplier">Supplier</option>
+                  </select>
+                </div>
+                {editSource === "Supplier" && (
+                <div>
+                  <label className="form-label text-sm">Supplier <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="supplier_id" required defaultValue={vehicle.supplier_id ?? ""} className="form-select text-sm">
+                    <option value="">— No Supplier —</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                )}
+                <div>
+                  <label className="form-label text-sm">Daily Rate (LKR) <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="daily_rate" type="number" required defaultValue={vehicle.daily_rate.toString()} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Current KM <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="current_km" type="number" required defaultValue={(vehicle.current_km || "").toString()} onChange={e => setEditCurrentKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+                </div>
+              </div>
+              {editSource === "Supplier" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div>
+                    <label className="form-label text-sm">Monthly Cost (Rs.) <span className="text-red-500 ml-0.5">*</span></label>
+                    <input name="monthly_cost" type="number" min="0" step="0.01" required defaultValue={vehicle.monthly_cost ?? ""} className="form-input text-sm" />
+                  </div>
+                  <div>
+                    <label className="form-label text-sm">Payment Frequency <span className="text-red-500 ml-0.5">*</span></label>
+                    <select name="payment_frequency" required className="form-select text-sm" value={editPayFreq} onChange={e => handleEditPayFreqChange(e.target.value)}>
+                      <option value="1_month">1 Month</option>
+                      <option value="15_days">15 Days</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label text-sm">Payment Day(s) of Month</label>
+                    <input type="hidden" name="payment_days" value={editPayFreq === "15_days" ? `${editPayDay1},${editPayDay2}` : `${editPayDay1}`} />
+                    {editPayDaysLocked ? (
+                      <div className="flex items-center gap-2">
+                        <input type="text" readOnly value={editPayFreq === "15_days" ? `${editPayDay1}, ${editPayDay2}` : `${editPayDay1}`} className="form-input bg-gray-50 text-gray-500 cursor-not-allowed text-sm flex-1" />
+                        <button type="button" onClick={() => setEditPayDaysLocked(false)} className="p-2 text-gray-400 hover:text-blue-600 flex-shrink-0" title="Edit payment days"><Pencil className="w-4 h-4" /></button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {editPayFreq === "15_days" ? (
+                          <>
+                            <select value={editPayDay1} onChange={e => setEditPayDay1(parseInt(e.target.value))} className="form-select text-sm w-[80px]">
+                              {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                            <span className="text-gray-400">,</span>
+                            <select value={editPayDay2} onChange={e => setEditPayDay2(parseInt(e.target.value))} className="form-select text-sm w-[80px]">
+                              {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                            </select>
+                          </>
+                        ) : (
+                          <select value={editPayDay1} onChange={e => setEditPayDay1(parseInt(e.target.value))} className="form-select text-sm w-[90px] flex-1">
+                            {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                          </select>
+                        )}
+                        <button type="button" onClick={() => setEditPayDaysLocked(true)} className="p-2 text-blue-600 hover:text-gray-400 flex-shrink-0" title="Lock"><Check className="w-4 h-4" /></button>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">{editPayFreq === "15_days" ? "Two payments per month on these days" : "One payment per month on this day"}</p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label className="form-label text-sm">Last Service Date <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="last_service_date" type="date" required value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Last Service KM <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="last_service_km" type="number" required value={editLastServiceKm || ""} onChange={e => handleEditLastServiceKmChange(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Service Interval <span className="text-red-500 ml-0.5">*</span></label>
+                  <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
+                    <option value="3000">3,000 KM</option>
+                    <option value="5000">5,000 KM</option>
+                    <option value="7000">7,000 KM</option>
+                    <option value="10000">10,000 KM</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Next Service KM <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="next_service_km" type="number" required value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Next Service Date <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="next_service_date" type="date" required value={editNextServiceDate} onChange={e => setEditNextServiceDate(e.target.value)} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Insurance Expiry <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="insurance_expiry" type="date" required defaultValue={vehicle.insurance_expiry ?? ""} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Revenue License Expiry <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="revenue_license_expiry" type="date" required defaultValue={vehicle.revenue_license_expiry ?? ""} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Eco Test Expiry</label>
+                  <input name="eco_test_expiry" type="date" defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Rental Start Date <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="rental_start_date" type="date" required defaultValue={vehicle.rental_start_date ?? ""} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Renew Date <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="renew_date" type="date" required defaultValue={vehicle.renew_date ?? ""} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Notes</label>
+                  <textarea name="notes" defaultValue={vehicle.notes ?? ""} rows={2} className="form-input text-sm resize-none" />
+                </div>
+              </div>
+              {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
+
+              {/* Documents */}
+              <div className="border-t border-gray-100 pt-4 mt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Documents</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FileUploader
+                    label="Registration Document (JPG/PDF, max 5MB) *"
+                    fieldName="registration_document"
+                    bucket="vehicle-documents"
+                    folder={`${vehicle.reg_number}/registration`}
+                    accept=".jpg,.jpeg,.pdf"
+                    multiple={false}
+                    maxFiles={1}
+                    initialFiles={vehicle.registration_document_url ? [{ url: vehicle.registration_document_url, path: vehicle.registration_document_path || "" }] : []}
+                  />
+                  <FileUploader
+                    label="Revenue License (JPG/PDF, max 5MB) *"
+                    fieldName="revenue_license"
+                    bucket="vehicle-documents"
+                    folder={`${vehicle.reg_number}/revenue_license`}
+                    accept=".jpg,.jpeg,.pdf"
+                    multiple={false}
+                    maxFiles={1}
+                    initialFiles={vehicle.revenue_license_url ? [{ url: vehicle.revenue_license_url, path: vehicle.revenue_license_path || "" }] : []}
+                  />
+                  <FileUploader
+                    label={`Eco Test (JPG/PDF, max 5MB)${editFuelType === "Petrol" || editFuelType === "Diesel" ? " *" : ""}`}
+                    fieldName="eco_test"
+                    bucket="vehicle-documents"
+                    folder={`${vehicle.reg_number}/eco_test`}
+                    accept=".jpg,.jpeg,.pdf"
+                    multiple={false}
+                    maxFiles={1}
+                    initialFiles={vehicle.eco_test_url ? [{ url: vehicle.eco_test_url, path: vehicle.eco_test_path || "" }] : []}
+                  />
+                  <FileUploader
+                    label="Insurance (JPG/PDF, max 5MB) *"
+                    fieldName="insurance"
+                    bucket="vehicle-documents"
+                    folder={`${vehicle.reg_number}/insurance`}
+                    accept=".jpg,.jpeg,.pdf"
+                    multiple={false}
+                    maxFiles={1}
+                    initialFiles={vehicle.insurance_url ? [{ url: vehicle.insurance_url, path: vehicle.insurance_path || "" }] : []}
+                  />
+                  <FileUploader
+                    label="Service Tag (JPG/PDF, max 5MB)"
+                    fieldName="service_tag"
+                    bucket="vehicle-documents"
+                    folder={`${vehicle.reg_number}/service_tag`}
+                    accept=".jpg,.jpeg,.pdf"
+                    multiple={false}
+                    maxFiles={1}
+                    initialFiles={vehicle.service_tag_url ? [{ url: vehicle.service_tag_url, path: vehicle.service_tag_path || "" }] : []}
+                  />
+                </div>
+              </div>
+
+              {/* Photos */}
+              <div className="border-t border-gray-100 pt-4 mt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Photos</p>
+                <FileUploader
+                  label="(JPG/PNG, max 5MB per photo, up to 6)"
+                  bucket="vehicle-documents"
+                  folder={`${vehicle.reg_number}/photos`}
+                  accept="image/*"
+                  multiple={true}
+                  maxFiles={6}
+                  initialFiles={localPhotos.map(p => ({ id: p.id, url: p.url, path: p.storage_path, isNew: false }))}
+                  customUploadAction={async (file) => {
+                    const res = await uploadVehiclePhoto(vehicle.id, file, localPhotos.length === 0);
+                    if (res.error) return { error: res.error };
+                    setLocalPhotos(prev => [...prev, { id: res.id, url: res.url, storage_path: res.path }]);
+                    return { url: res.url, path: res.path, id: res.id };
+                  }}
+                  customDeleteAction={async (path, url, fileId) => {
+                    if (!fileId) return { error: "Missing file ID" };
+                    const res = await deleteVehiclePhoto(fileId, path, vehicle.id);
+                    if (res && "error" in res) return { error: res.error as string };
+                    setLocalPhotos(prev => prev.filter(p => p.id !== fileId));
+                    return {};
+                  }}
+                />
+              </div>
+
+              {/* Rate Tiers */}
+              <div className="border-t border-gray-100 pt-4 mt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Rate Tiers</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {rateTiers.map((tier, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 px-4 py-3">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Tier {i + 1}</p>
+                        <p className="text-xs text-gray-400">Days {tier.days_from}{tier.days_to ? `–${tier.days_to}` : "+"}</p>
+                      </div>
+                      <input
+                        type="number"
+                        value={tier.rate_per_day}
+                        onChange={e => {
+                          const newTiers = [...rateTiers];
+                          newTiers[i] = { ...newTiers[i], rate_per_day: +e.target.value };
+                          setRateTiers(newTiers);
+                        }}
+                        className="form-input w-28 text-sm"
+                      />
+                      <span className="text-sm text-gray-400">/day</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </form>
+          )}
+
       <Tabs defaultValue="details">
-        <div className="section-card overflow-hidden">
+        <div className="section-card">
           <div className="px-5 pt-4 flex items-center justify-between border-b border-gray-100 pb-0 flex-wrap gap-3">
             <TabsList className="border-b-0">
               <TabsTrigger value="details"><Car className="w-3.5 h-3.5 mr-1.5 inline" />Details</TabsTrigger>
@@ -338,8 +615,19 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               <TabsTrigger value="financials"><TrendingUp className="w-3.5 h-3.5 mr-1.5 inline" />Financials</TabsTrigger>
             </TabsList>
             <div className="flex gap-2 mb-2">
-              <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><Edit className="w-3.5 h-3.5" /> Edit</button>
-              <button onClick={() => setConfirmDelete(true)} className="btn-danger text-sm"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+              {editing ? (
+                <>
+                  <button type="submit" form="vehicle-edit-form" disabled={isPending} className="btn-primary text-sm">
+                    {isPending ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button type="button" onClick={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} className="btn-secondary text-sm">Cancel</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><Edit className="w-3.5 h-3.5" /> Edit</button>
+                  <button onClick={() => setConfirmDelete(true)} className="btn-danger text-sm"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+                </>
+              )}
             </div>
           </div>
 
@@ -777,313 +1065,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
       </Tabs>
 
       <PasswordConfirmModal open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete Vehicle" description="This will permanently deactivate this vehicle." onConfirm={performDelete} />
-
-      {/* ── EDIT MODAL ── */}
-      <EditModal open={editing} title="Edit Vehicle" onClose={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} maxWidth="max-w-4xl">
-        <form onSubmit={handleEditSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <div>
-              <label className="form-label text-sm">Brand <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="brand" value={editBrand} onChange={handleEditBrandChange} className="form-select text-sm">
-                {BRANDS.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Model <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="model" value={editModel} onChange={e => setEditModel(e.target.value)} className="form-select text-sm">
-                {availableModels.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Year <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="year" required defaultValue={vehicle.year?.toString() ?? ""} className="form-select text-sm">
-                <option value="">— Select —</option>
-                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Color</label>
-              <select name="color" defaultValue={vehicle.color ?? ""} className="form-select text-sm">
-                <option value="">— Select —</option>
-                {COLORS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            {[
-              { name: "daily_rate", label: "Daily Rate (LKR)", defaultValue: vehicle.daily_rate.toString(), type: "number", required: true },
-              { name: "current_km", label: "Current KM", defaultValue: (vehicle.current_km || "").toString(), type: "number", required: true },
-            ].map(f => (
-              <div key={f.name}>
-                <label className="form-label text-sm">{f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}</label>
-                <input name={f.name} type={f.type ?? "text"} defaultValue={f.defaultValue} required={f.required} className="form-input text-sm"
-                  onChange={e => { if (f.name === "current_km") setEditCurrentKm(parseInt(e.target.value) || 0); }} />
-              </div>
-            ))}
-            <div>
-              <label className="form-label text-sm">Type <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="type" required defaultValue={vehicle.type} className="form-select text-sm">
-                {["Sedan","Hatchback","SUV","Van","Pickup","Bus","Other"].map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Fuel Type <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="fuel_type" required value={editFuelType} onChange={e => setEditFuelType(e.target.value)} className="form-select text-sm">
-                <option value="">— Select —</option>
-                {FUEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Status <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="status" required defaultValue={vehicle.status} className="form-select text-sm">
-                <option value="available">Available</option>
-                <option value="rented">Rented</option>
-                <option value="booked">Booked</option>
-                <option value="in_garage">In Garage</option>
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Source <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="source" required value={editSource} onChange={e => setEditSource(e.target.value as "Company" | "Supplier")} className="form-select text-sm">
-                <option value="Company">Company</option>
-                <option value="Supplier">Supplier</option>
-              </select>
-            </div>
-            {editSource === "Supplier" && (
-            <div>
-              <label className="form-label text-sm">Supplier <span className="text-red-500 ml-0.5">*</span></label>
-              <select name="supplier_id" required defaultValue={vehicle.supplier_id ?? ""} className="form-select text-sm">
-                <option value="">— No Supplier —</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            )}
-            {/* Supplier Payment Fields */}
-            {editSource === "Supplier" && (
-              <>
-                <div>
-                  <label className="form-label text-sm">Monthly Cost (Rs.) <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="monthly_cost" type="number" min="0" step="0.01" required defaultValue={vehicle.monthly_cost ?? ""} className="form-input text-sm" />
-                </div>
-                <div>
-                  <label className="form-label text-sm">Payment Frequency <span className="text-red-500 ml-0.5">*</span></label>
-                  <select
-                    name="payment_frequency"
-                    required
-                    className="form-select text-sm"
-                    value={editPayFreq}
-                    onChange={e => handleEditPayFreqChange(e.target.value)}
-                  >
-                    <option value="1_month">1 Month</option>
-                    <option value="15_days">15 Days</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label text-sm">Payment Day(s) of Month</label>
-                  <input type="hidden" name="payment_days" value={editPayFreq === "15_days" ? `${editPayDay1},${editPayDay2}` : `${editPayDay1}`} />
-                  {editPayDaysLocked ? (
-                    <div className="flex items-center gap-2">
-                      <input type="text" readOnly value={editPayFreq === "15_days" ? `${editPayDay1}, ${editPayDay2}` : `${editPayDay1}`} className="form-input bg-gray-50 text-gray-500 cursor-not-allowed text-sm flex-1" />
-                      <button type="button" onClick={() => setEditPayDaysLocked(false)} className="p-2 text-gray-400 hover:text-blue-600 flex-shrink-0" title="Edit payment days">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {editPayFreq === "15_days" ? (
-                        <>
-                          <select value={editPayDay1} onChange={e => setEditPayDay1(parseInt(e.target.value))} className="form-select text-sm w-[80px]">
-                            {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
-                          </select>
-                          <span className="text-gray-400">,</span>
-                          <select value={editPayDay2} onChange={e => setEditPayDay2(parseInt(e.target.value))} className="form-select text-sm w-[80px]">
-                            {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
-                          </select>
-                        </>
-                      ) : (
-                        <select value={editPayDay1} onChange={e => setEditPayDay1(parseInt(e.target.value))} className="form-select text-sm w-[90px] flex-1">
-                          {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
-                        </select>
-                      )}
-                      <button type="button" onClick={() => setEditPayDaysLocked(true)} className="p-2 text-blue-600 hover:text-gray-400 flex-shrink-0" title="Lock">
-                        <Check className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">{editPayFreq === "15_days" ? "Two payments per month on these days" : "One payment per month on this day"}</p>
-                </div>
-              </>
-            )}
-            <div>
-              <label className="form-label text-sm">Last Service Date <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="last_service_date" type="date" required value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Last Service KM <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="last_service_km" type="number" required value={editLastServiceKm || ""} onChange={e => handleEditLastServiceKmChange(parseInt(e.target.value) || 0)} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Service Interval <span className="text-red-500 ml-0.5">*</span></label>
-              <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
-                <option value="3000">3,000 KM</option>
-                <option value="5000">5,000 KM</option>
-                <option value="7000">7,000 KM</option>
-                <option value="10000">10,000 KM</option>
-              </select>
-            </div>
-            <div>
-              <label className="form-label text-sm">Next Service KM <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="next_service_km" type="number" required value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Next Service Date <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="next_service_date" type="date" required value={editNextServiceDate} onChange={e => setEditNextServiceDate(e.target.value)} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Insurance Expiry <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="insurance_expiry" type="date" required defaultValue={vehicle.insurance_expiry ?? ""} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Revenue License Expiry <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="revenue_license_expiry" type="date" required defaultValue={vehicle.revenue_license_expiry ?? ""} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Eco Test Expiry</label>
-              <input name="eco_test_expiry" type="date" defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Rental Start Date <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="rental_start_date" type="date" required defaultValue={vehicle.rental_start_date ?? ""} className="form-input text-sm" />
-            </div>
-            <div>
-              <label className="form-label text-sm">Renew Date <span className="text-red-500 ml-0.5">*</span></label>
-              <input name="renew_date" type="date" required defaultValue={vehicle.renew_date ?? ""} className="form-input text-sm" />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="form-label text-sm">Notes</label>
-            <textarea name="notes" defaultValue={vehicle.notes ?? ""} rows={2} className="form-input text-sm resize-none" />
-          </div>
-
-          {/* Rate Tiers */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <label className="form-label mb-0">Rate Tiers</label>
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Fixed 4 tiers</span>
-            </div>
-            <div className="space-y-2">
-              {rateTiers.map((tier, i) => (
-                <div key={i} className="grid grid-cols-3 gap-2 items-end bg-gray-50 px-4 py-3 rounded-lg">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Days From</label>
-                    <input type="number" value={tier.days_from} onChange={e => setRateTiers(prev => prev.map((t, j) => j === i ? {...t, days_from: +e.target.value} : t))} className="form-input text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Days To {i === 3 && <span className="text-gray-400">(blank = open)</span>}</label>
-                    <input type="number" value={tier.days_to ?? ""} placeholder={i === 3 ? "Open-ended" : ""} onChange={e => setRateTiers(prev => prev.map((t, j) => j === i ? {...t, days_to: e.target.value ? +e.target.value : undefined} : t))} className="form-input text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Rate/Day (LKR)</label>
-                    <input type="number" value={tier.rate_per_day} onChange={e => setRateTiers(prev => prev.map((t, j) => j === i ? {...t, rate_per_day: +e.target.value} : t))} className="form-input text-sm" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Documents inside edit modal */}
-          <div className="mb-6 border-t border-gray-100 pt-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Documents</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FileUploader
-                label="Registration Document (JPG/PDF, max 5MB) *"
-                fieldName="registration_document"
-                bucket="vehicle-documents"
-                folder={`${vehicle.reg_number}/registration`}
-                accept=".jpg,.jpeg,.pdf"
-                multiple={false}
-                maxFiles={1}
-                initialFiles={vehicle.registration_document_url ? [{ url: vehicle.registration_document_url, path: vehicle.registration_document_path || "" }] : []}
-              />
-              <FileUploader
-                label="Revenue License (JPG/PDF, max 5MB) *"
-                fieldName="revenue_license"
-                bucket="vehicle-documents"
-                folder={`${vehicle.reg_number}/revenue_license`}
-                accept=".jpg,.jpeg,.pdf"
-                multiple={false}
-                maxFiles={1}
-                initialFiles={vehicle.revenue_license_url ? [{ url: vehicle.revenue_license_url, path: vehicle.revenue_license_path || "" }] : []}
-              />
-              <FileUploader
-                label={`Eco Test (JPG/PDF, max 5MB)${editFuelType === "Petrol" || editFuelType === "Diesel" ? " *" : ""}`}
-                fieldName="eco_test"
-                bucket="vehicle-documents"
-                folder={`${vehicle.reg_number}/eco_test`}
-                accept=".jpg,.jpeg,.pdf"
-                multiple={false}
-                maxFiles={1}
-                initialFiles={vehicle.eco_test_url ? [{ url: vehicle.eco_test_url, path: vehicle.eco_test_path || "" }] : []}
-              />
-              <FileUploader
-                label="Insurance (JPG/PDF, max 5MB) *"
-                fieldName="insurance"
-                bucket="vehicle-documents"
-                folder={`${vehicle.reg_number}/insurance`}
-                accept=".jpg,.jpeg,.pdf"
-                multiple={false}
-                maxFiles={1}
-                initialFiles={vehicle.insurance_url ? [{ url: vehicle.insurance_url, path: vehicle.insurance_path || "" }] : []}
-              />
-              <FileUploader
-                label="Service Tag (JPG/PDF, max 5MB)"
-                fieldName="service_tag"
-                bucket="vehicle-documents"
-                folder={`${vehicle.reg_number}/service_tag`}
-                accept=".jpg,.jpeg,.pdf"
-                multiple={false}
-                maxFiles={1}
-                initialFiles={vehicle.service_tag_url ? [{ url: vehicle.service_tag_url, path: vehicle.service_tag_path || "" }] : []}
-              />
-            </div>
-          </div>
-
-          {/* Photos inside edit modal */}
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Photos</p>
-            <FileUploader
-              label="(JPG/PNG, max 5MB per photo, up to 6)"
-              bucket="vehicle-documents"
-              folder={`${vehicle.reg_number}/photos`}
-              accept="image/*"
-              multiple={true}
-              maxFiles={6}
-              initialFiles={localPhotos.map(p => ({ id: p.id, url: p.url, path: p.storage_path, isNew: false }))}
-              customUploadAction={async (file) => {
-                const res = await uploadVehiclePhoto(vehicle.id, file, localPhotos.length === 0);
-                if (res.error) return { error: res.error };
-                // Update local state immediately so Images tab reflects the new photo
-                setLocalPhotos(prev => [...prev, { id: res.id, url: res.url, storage_path: res.path }]);
-                return { url: res.url, path: res.path, id: res.id };
-              }}
-              customDeleteAction={async (path, url, fileId) => {
-                if (!fileId) return { error: "Missing file ID" };
-                const res = await deleteVehiclePhoto(fileId, path, vehicle.id);
-                if (res && "error" in res) return { error: res.error as string };
-                // Remove from local state immediately so Images tab reflects the deletion
-                setLocalPhotos(prev => prev.filter(p => p.id !== fileId));
-                return {};
-              }}
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
-          <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
-            <button type="button" onClick={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} className="btn-secondary text-sm">Cancel</button>
-            <button type="submit" className="btn-primary text-sm">{isPending ? "Saving..." : "Save Changes"}</button>
-          </div>
-        </form>
-        <PasswordConfirmModal open={confirmEdit} onOpenChange={setConfirmEdit} title="Confirm Edit" description="Enter your password to save changes." onConfirm={performEdit} />
-      </EditModal>
     </div>
   );
 }

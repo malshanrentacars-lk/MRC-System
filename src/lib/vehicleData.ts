@@ -1,7 +1,7 @@
 // MRC vehicle reference data
 
 export const BRANDS = [
-  { name: "Toyota", models: ["Corolla","Axio","Premio","Allion","Vitz","Aqua","Prius","Raize","CHR","Land Cruiser Prado","Land Cruiser","Rush","KDH","Hiace","Noah","Voxy","Yaris", "Other"] },
+  { name: "Toyota", models: ["Corolla","Axio","Premio","Allion","Vitz","Aqua","Prius","Raize","CHR","Land Cruiser Prado","Land Cruiser","Rush","KDH","Hiace","Noah","Voxy","Yaris","Belta", "Other"] },
   { name: "Suzuki", models: ["Alto","Wagon R","Baleno","Celerio","Swift","Every","Spacia","Other"] },
   { name: "Nissan", models: ["Sunny","X-Trail","Leaf","March","Dayz","Caravan","magnite ","Other"] },
   { name: "Honda", models: ["Fit","Vezel","Civic","Grace","CR-V","insight","GP01","GP05","Other"] },

@@ -82,8 +82,9 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
   }
 
   function calcNextServiceDate(lastDate: string, interval: string) {
-    if (!lastDate) return "";
+    if (!lastDate || !interval) return "";
     const date = new Date(lastDate + "T00:00:00");
+    if (isNaN(date.getTime())) return "";
     date.setDate(date.getDate() + parseInt(interval) / 100);
     return date.toISOString().split("T")[0];
   }

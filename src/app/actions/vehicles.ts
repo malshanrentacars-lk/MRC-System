@@ -382,30 +382,30 @@ export async function updateVehicle(id: string, formData: FormData) {
 }
 
 async function deleteStorageFolder(bucket: string, prefix: string) {
-  async function collectFiles(currentPrefix: string): Promise<string[]> {
-    const { data } = await supabaseAdmin.storage.from(bucket).list(currentPrefix);
-    if (!data || data.length === 0) return [];
+  try {
+    const allPaths: string[] = [];
+    const dirsToProcess = [prefix];
 
-    const result: string[] = [];
-    for (const item of data) {
-      const itemPath = `${currentPrefix}${item.name}`;
-      if (item.id === null) {
-        // Folder — recurse into it
-        const nested = await collectFiles(itemPath);
-        result.push(...nested);
-      } else {
-        result.push(itemPath);
+    while (dirsToProcess.length > 0) {
+      const dir = dirsToProcess.shift()!;
+      const { data } = await supabaseAdmin.storage.from(bucket).list(dir, { limit: 500 });
+
+      if (!data) continue;
+
+      for (const item of data) {
+        if (item.metadata) {
+          allPaths.push(`${dir}${item.name}`);
+        } else {
+          dirsToProcess.push(`${dir}${item.name}`);
+        }
       }
     }
-    return result;
-  }
 
-  const allPaths = await collectFiles(prefix);
-  if (allPaths.length > 0) {
-    // Delete in batches of 1000
-    for (let i = 0; i < allPaths.length; i += 1000) {
-      await supabaseAdmin.storage.from(bucket).remove(allPaths.slice(i, i + 1000));
+    if (allPaths.length > 0) {
+      await supabaseAdmin.storage.from(bucket).remove(allPaths);
     }
+  } catch (e) {
+    console.warn(`Failed to clean up storage: ${bucket}/${prefix}`, e);
   }
 }
 

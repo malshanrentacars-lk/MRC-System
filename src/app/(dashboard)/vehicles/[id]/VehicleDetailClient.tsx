@@ -229,8 +229,9 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
   const [editNextServiceDate, setEditNextServiceDate] = useState(vehicle.next_service_date || "");
 
   function calcEditNextServiceDate(lastDate: string, interval: string) {
-    if (!lastDate) return "";
+    if (!lastDate || !interval) return "";
     const date = new Date(lastDate + "T00:00:00");
+    if (isNaN(date.getTime())) return "";
     date.setDate(date.getDate() + parseInt(interval) / 100);
     return date.toISOString().split("T")[0];
   }

@@ -6,11 +6,12 @@ import Link from "next/link";
 import { Search, Plus, Loader2, Car } from "lucide-react";
 import { Supplier } from "@/types";
 import { formatAddress } from "@/lib/address";
+import { getSuppliers } from "@/app/actions/suppliers";
 
 export default function SuppliersClient({
-  suppliers,
-  total,
-  currentPage,
+  suppliers: initialSuppliers,
+  total: initialTotal,
+  currentPage: initialPage,
 }: {
   suppliers: Supplier[];
   total: number;
@@ -20,6 +21,22 @@ export default function SuppliersClient({
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getSuppliers({ search: search || undefined, page: nextPage, pageSize: 10 });
+    if (result.data) {
+      setAllSuppliers(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   function applySearch() {
     const params = new URLSearchParams();
@@ -53,10 +70,10 @@ export default function SuppliersClient({
             <tr><th>Name</th><th>Phone</th><th>Email</th><th>NIC</th><th>Address</th><th>Vehicles</th></tr>
           </thead>
           <tbody>
-            {suppliers.length === 0 && (
+            {allSuppliers.length === 0 && (
               <tr><td colSpan={6} className="text-center py-12 text-gray-400">No suppliers found</td></tr>
             )}
-            {suppliers.map(s => (
+            {allSuppliers.map(s => (
               <tr key={s.id} onClick={() => router.push(`/suppliers/${s.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><p className="font-medium text-gray-900">{s.name}</p></td>
                 <td>{s.phone ?? "—"}</td>
@@ -75,9 +92,11 @@ export default function SuppliersClient({
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-sm text-gray-500">Showing {suppliers.length} of {total}</span>
-        {currentPage * 10 < total && (
-          <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">Load More</Link>
+        <span className="text-sm text-gray-500">Showing {allSuppliers.length} of {total}</span>
+        {clientPage * 10 < total && (
+          <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
         )}
       </div>
 

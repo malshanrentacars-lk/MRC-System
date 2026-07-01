@@ -216,6 +216,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
   const [editPayDaysLocked, setEditPayDaysLocked] = useState(true);
   const [editInterval, setEditInterval] = useState("5000");
   const [editCurrentKm, setEditCurrentKm] = useState(vehicle.current_km || 0);
+  const [editLastServiceKm, setEditLastServiceKm] = useState(vehicle.last_service_km || 0);
   const [editNextServiceKm, setEditNextServiceKm] = useState(vehicle.next_service_km || 5000);
   const [editLastServiceDate, setEditLastServiceDate] = useState(vehicle.last_service_date || "");
   const [editNextServiceDate, setEditNextServiceDate] = useState(vehicle.next_service_date || "");
@@ -227,6 +228,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     return date.toISOString().split("T")[0];
   }
 
+  function handleEditLastServiceKmChange(km: number) {
+    setEditLastServiceKm(km);
+    setEditNextServiceKm(km + parseInt(editInterval));
+  }
+
   function handleEditLastServiceDateChange(date: string) {
     setEditLastServiceDate(date);
     setEditNextServiceDate(calcEditNextServiceDate(date, editInterval));
@@ -234,13 +240,8 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
 
   function handleEditIntervalChange(interval: string) {
     setEditInterval(interval);
-    setEditNextServiceKm(editCurrentKm + parseInt(interval));
+    setEditNextServiceKm(editLastServiceKm + parseInt(interval));
     setEditNextServiceDate(calcEditNextServiceDate(editLastServiceDate, interval));
-  }
-
-  function handleEditCurrentKmChange(km: number) {
-    setEditCurrentKm(km);
-    setEditNextServiceKm(km + parseInt(editInterval));
   }
 
   function calcPayDays(freq: string): string {
@@ -798,7 +799,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
               <div key={f.name}>
                 <label className="form-label text-sm">{f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}</label>
                 <input name={f.name} type={f.type ?? "text"} defaultValue={f.defaultValue} required={f.required} className="form-input text-sm"
-                  onChange={e => { if (f.name === "current_km") handleEditCurrentKmChange(parseInt(e.target.value) || 0); }} />
+                  onChange={e => { if (f.name === "current_km") setEditCurrentKm(parseInt(e.target.value) || 0); }} />
               </div>
             ))}
             <div>
@@ -890,6 +891,10 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
             <div>
               <label className="form-label text-sm">Last Service Date</label>
               <input name="last_service_date" type="date" value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
+            </div>
+            <div>
+              <label className="form-label text-sm">Last Service KM</label>
+              <input name="last_service_km" type="number" value={editLastServiceKm || ""} onChange={e => handleEditLastServiceKmChange(parseInt(e.target.value) || 0)} className="form-input text-sm" />
             </div>
             <div>
               <label className="form-label text-sm">Service Interval</label>

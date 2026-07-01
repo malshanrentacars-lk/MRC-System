@@ -6,11 +6,12 @@ import Link from "next/link";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { Company } from "@/types";
 import { formatAddress } from "@/lib/address";
+import { getCompanies } from "@/app/actions/companies";
 
 export default function CompaniesClient({
-  companies,
-  total,
-  currentPage,
+  companies: initialCompanies,
+  total: initialTotal,
+  currentPage: initialPage,
 }: {
   companies: Company[];
   total: number;
@@ -20,6 +21,22 @@ export default function CompaniesClient({
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [allCompanies, setAllCompanies] = useState<Company[]>(initialCompanies);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getCompanies({ search: search || undefined, page: nextPage, pageSize: 10 });
+    if (result.data) {
+      setAllCompanies(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   function applySearch() {
     const params = new URLSearchParams();
@@ -53,10 +70,10 @@ export default function CompaniesClient({
             <tr><th>Logo</th><th>Name</th><th>Phone</th><th>Email</th><th>Address</th></tr>
           </thead>
           <tbody>
-            {companies.length === 0 && (
+            {allCompanies.length === 0 && (
               <tr><td colSpan={5} className="text-center py-12 text-gray-400">No companies found</td></tr>
             )}
-            {companies.map(c => (
+            {allCompanies.map(c => (
               <tr key={c.id} onClick={() => router.push(`/companies/${c.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td>
                   {c.logo_url ? (
@@ -76,9 +93,11 @@ export default function CompaniesClient({
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-sm text-gray-500">Showing {companies.length} of {total}</span>
-        {currentPage * 10 < total && (
-          <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">Load More</Link>
+        <span className="text-sm text-gray-500">Showing {allCompanies.length} of {total}</span>
+        {clientPage * 10 < total && (
+          <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
         )}
       </div>
 

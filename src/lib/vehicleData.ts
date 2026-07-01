@@ -4,7 +4,7 @@ export const BRANDS = [
   { name: "Toyota", models: ["Corolla","Axio","Premio","Allion","Vitz","Aqua","Prius","Raize","CHR","Land Cruiser Prado","Land Cruiser","Rush","KDH","Hiace","Noah","Voxy","Yaris", "Other"] },
   { name: "Suzuki", models: ["Alto","Wagon R","Baleno","Celerio","Swift","Every","Spacia","Other"] },
   { name: "Nissan", models: ["Sunny","X-Trail","Leaf","March","Dayz","Caravan","magnite ","Other"] },
-  { name: "Honda", models: ["Fit","Vezel","Civic","Grace","CR-V","insight","Other"] },
+  { name: "Honda", models: ["Fit","Vezel","Civic","Grace","CR-V","insight","GP01","GP05","Other"] },
   { name: "Mitsubishi", models: ["Lancer","Outlander","Montero","Pajero","Eclipse Cross","Other"] },
   { name: "Mazda", models: ["Demio","Axela","CX-5","Other"] },
   { name: "Hyundai", models: ["Grand i10","Eon","Tucson","Santa Fe","Other"] },

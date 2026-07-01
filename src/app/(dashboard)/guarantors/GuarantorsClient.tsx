@@ -6,11 +6,12 @@ import Link from "next/link";
 import { Search, Plus, Eye, Loader2 } from "lucide-react";
 import { Guarantor } from "@/types";
 import { formatAddress } from "@/lib/address";
+import { getGuarantors } from "@/app/actions/suppliers";
 
 export default function GuarantorsClient({
-  guarantors,
-  total,
-  currentPage,
+  guarantors: initialGuarantors,
+  total: initialTotal,
+  currentPage: initialPage,
 }: {
   guarantors: Guarantor[];
   total: number;
@@ -20,6 +21,22 @@ export default function GuarantorsClient({
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [allGuarantors, setAllGuarantors] = useState<Guarantor[]>(initialGuarantors);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getGuarantors({ search: search || undefined, page: nextPage, pageSize: 10 });
+    if (result.data) {
+      setAllGuarantors(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   function applySearch() {
     const params = new URLSearchParams();
@@ -51,10 +68,10 @@ export default function GuarantorsClient({
         <table className="data-table">
           <thead><tr><th>Name</th><th>NIC</th><th>Phone</th><th>Address</th><th>Linked To</th></tr></thead>
           <tbody>
-            {guarantors.length === 0 && (
+            {allGuarantors.length === 0 && (
               <tr><td colSpan={5} className="text-center py-12 text-gray-400">No guarantors found</td></tr>
             )}
-            {guarantors.map(g => (
+            {allGuarantors.map(g => (
               <tr key={g.id} onClick={() => router.push(`/guarantors/${g.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><p className="font-medium text-gray-900">{g.name}</p></td>
                 <td className="text-gray-500">{g.nic ?? "—"}</td>
@@ -72,9 +89,11 @@ export default function GuarantorsClient({
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-sm text-gray-500">Showing {guarantors.length} of {total}</span>
-        {currentPage * 10 < total && (
-          <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">Load More</Link>
+        <span className="text-sm text-gray-500">Showing {allGuarantors.length} of {total}</span>
+        {clientPage * 10 < total && (
+          <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
         )}
       </div>
     </div>

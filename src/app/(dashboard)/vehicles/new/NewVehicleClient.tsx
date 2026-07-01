@@ -30,6 +30,7 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
   const [payDay2, setPayDay2] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15).getDate());
   const [regNumber, setRegNumber] = useState("");
   const [currentKm, setCurrentKm] = useState(0);
+  const [lastServiceKm, setLastServiceKm] = useState(0);
   const [nextServiceKm, setNextServiceKm] = useState(5000);
   const [serviceInterval, setServiceInterval] = useState("5000");
   const [lastServiceDate, setLastServiceDate] = useState("");
@@ -42,6 +43,11 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
     return date.toISOString().split("T")[0];
   }
 
+  function handleLastServiceKmChange(km: number) {
+    setLastServiceKm(km);
+    setNextServiceKm(km + parseInt(serviceInterval));
+  }
+
   function handleLastServiceDateChange(date: string) {
     setLastServiceDate(date);
     setNextServiceDate(calcNextServiceDate(date, serviceInterval));
@@ -49,13 +55,8 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
 
   function handleServiceIntervalChange(interval: string) {
     setServiceInterval(interval);
-    setNextServiceKm(currentKm + parseInt(interval));
+    setNextServiceKm(lastServiceKm + parseInt(interval));
     setNextServiceDate(calcNextServiceDate(lastServiceDate, interval));
-  }
-
-  function handleCurrentKmChange(km: number) {
-    setCurrentKm(km);
-    setNextServiceKm(km + parseInt(serviceInterval));
   }
 
   // Rate tiers
@@ -250,13 +251,17 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
           {/* KM Fields */}
           <div>
             <label className="form-label">Current KM</label>
-            <input name="current_km" type="number" defaultValue="0" className="form-input" onChange={e => handleCurrentKmChange(parseInt(e.target.value) || 0)} />
+            <input name="current_km" type="number" defaultValue="0" className="form-input" onChange={e => setCurrentKm(parseInt(e.target.value) || 0)} />
           </div>
 
           {/* Dates */}
           <div>
             <label className="form-label">Last Service Date</label>
             <input name="last_service_date" type="date" className="form-input" value={lastServiceDate} onChange={e => handleLastServiceDateChange(e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">Last Service KM</label>
+            <input name="last_service_km" type="number" className="form-input" value={lastServiceKm || ""} onChange={e => handleLastServiceKmChange(parseInt(e.target.value) || 0)} />
           </div>
           <div>
             <label className="form-label">Service Interval</label>

@@ -7,7 +7,7 @@ import { Search, Plus, Loader2, UserSearch } from "lucide-react";
 import { Customer } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { formatAddress } from "@/lib/address";
-import { getCustomerByNic } from "@/app/actions/customers";
+import { getCustomerByNic, getCustomers } from "@/app/actions/customers";
 
 interface CustomersClientProps {
   customers: Customer[];
@@ -15,11 +15,27 @@ interface CustomersClientProps {
   currentPage: number;
 }
 
-export default function CustomersClient({ customers, total, currentPage }: CustomersClientProps) {
+export default function CustomersClient({ customers: initialCustomers, total: initialTotal, currentPage: initialPage }: CustomersClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [allCustomers, setAllCustomers] = useState<Customer[]>(initialCustomers);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getCustomers({ search: search || undefined, page: nextPage, pageSize: 10 });
+    if (result.data) {
+      setAllCustomers(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   // NIC auto-fill state
   const [nicSearch, setNicSearch] = useState("");
@@ -88,8 +104,8 @@ export default function CustomersClient({ customers, total, currentPage }: Custo
         <table className="data-table">
           <thead><tr><th>Name</th><th>NIC</th><th>Phone</th><th>Phone 2</th><th>License</th><th>License Expiry</th><th>Address</th></tr></thead>
           <tbody>
-            {customers.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-400">No customers found</td></tr>}
-            {customers.map((c) => (
+            {allCustomers.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-400">No customers found</td></tr>}
+            {allCustomers.map((c) => (
               <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><p className="font-medium text-gray-900">{c.name}</p></td>
                 <td className="text-gray-500">{c.nic ?? "—"}</td>
@@ -104,9 +120,11 @@ export default function CustomersClient({ customers, total, currentPage }: Custo
         </table>
       </div>
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-sm text-gray-500">Showing {customers.length} of {total}</span>
-        {currentPage * 10 < total && (
-          <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">Load More</Link>
+        <span className="text-sm text-gray-500">Showing {allCustomers.length} of {total}</span>
+        {clientPage * 10 < total && (
+          <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
         )}
       </div>
 

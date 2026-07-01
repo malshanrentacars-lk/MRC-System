@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
 import { Eye, Search, Filter, ChevronDown, Loader2 } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ServiceAlertBadge from "@/components/shared/ServiceAlertBadge";
 import { Vehicle, Supplier } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import { getVehicles } from "@/app/actions/vehicles";
 
 interface VehiclesClientProps {
   vehicles: Vehicle[];
@@ -16,7 +16,7 @@ interface VehiclesClientProps {
   currentPage: number;
 }
 
-export default function VehiclesClient({ vehicles, total, currentPage }: VehiclesClientProps) {
+export default function VehiclesClient({ vehicles: initialVehicles, total: initialTotal, currentPage: initialPage }: VehiclesClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState("");
@@ -24,6 +24,28 @@ export default function VehiclesClient({ vehicles, total, currentPage }: Vehicle
   const [status, setStatus] = useState("all");
   const [source, setSource] = useState("all");
   const [isPending, startTransition] = useTransition();
+
+  const [allVehicles, setAllVehicles] = useState<Vehicle[]>(initialVehicles);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getVehicles({
+      search, type: type === "all" ? undefined : type,
+      status: status === "all" ? undefined : status,
+      source: source === "all" ? undefined : source,
+      page: nextPage, pageSize: 10,
+    });
+    if (result.data) {
+      setAllVehicles(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   function applyFilters(overrides?: Record<string, string>) {
     const params = new URLSearchParams();
@@ -38,8 +60,8 @@ export default function VehiclesClient({ vehicles, total, currentPage }: Vehicle
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
 
-  const hasMore = currentPage * 10 < total;
-  const shown = vehicles.length;
+  const hasMore = clientPage * 10 < total;
+  const shown = allVehicles.length;
 
   return (
     <div className="section-card">
@@ -93,10 +115,10 @@ export default function VehiclesClient({ vehicles, total, currentPage }: Vehicle
             </tr>
           </thead>
           <tbody>
-            {vehicles.length === 0 && (
+            {allVehicles.length === 0 && (
               <tr><td colSpan={10} className="text-center py-12 text-gray-400">No vehicles found</td></tr>
             )}
-            {vehicles.map((v) => (
+            {allVehicles.map((v) => (
               <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
                 <td><span className="font-semibold text-gray-900">{v.reg_number}</span></td>
                 <td className="text-blue-600 font-medium">{v.brand}</td>
@@ -124,9 +146,9 @@ export default function VehiclesClient({ vehicles, total, currentPage }: Vehicle
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
         <span className="text-sm text-gray-500">Showing {shown} of {total}</span>
         {hasMore && (
-          <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">
-            Load More
-          </Link>
+          <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
         )}
       </div>
     </div>

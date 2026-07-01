@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { ExternalLink } from "lucide-react";
-import { DepositEntry } from "@/app/actions/deposits";
+import { DepositEntry, getRefundableDeposits } from "@/app/actions/deposits";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
 
@@ -15,9 +16,37 @@ interface DepositsClientProps {
 
 const activeStatuses = ["active", "booked"];
 
-export default function DepositsClient({ deposits, total, currentPage }: DepositsClientProps) {
+export default function DepositsClient({ deposits: initialDeposits, total: initialTotal, currentPage: initialPage }: DepositsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [allDeposits, setAllDeposits] = useState<DepositEntry[]>(initialDeposits);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getRefundableDeposits({ page: nextPage, pageSize: 10 });
+    if (result.data) {
+      setAllDeposits(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
+
+  async function goToPrevPage() {
+    setLoadingMore(true);
+    const prevPage = clientPage - 1;
+    const result = await getRefundableDeposits({ page: prevPage, pageSize: 10 });
+    if (result.data) {
+      setAllDeposits(result.data);
+      setClientPage(prevPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   return (
     <div className="section-card">
@@ -35,14 +64,14 @@ export default function DepositsClient({ deposits, total, currentPage }: Deposit
             </tr>
           </thead>
           <tbody>
-            {deposits.length === 0 && (
+            {allDeposits.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center py-12 text-gray-400">
                   No deposit records found
                 </td>
               </tr>
             )}
-            {deposits.map((d) => {
+            {allDeposits.map((d) => {
               const isActive = activeStatuses.includes(d.status);
               return (
                 <tr key={d.id} onClick={() => router.push(`/rentals/${d.id}`)} className={`${isActive ? "bg-blue-50/20" : ""} cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100`}>
@@ -94,18 +123,18 @@ export default function DepositsClient({ deposits, total, currentPage }: Deposit
       {/* Pagination */}
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
         <span className="text-sm text-gray-500">
-          Showing {deposits.length} of {total} records
+          Showing {allDeposits.length} of {total} records
         </span>
         <div className="flex gap-2">
-          {currentPage > 1 && (
-            <Link href={`${pathname}?page=${currentPage - 1}`} className="btn-secondary text-sm">
+          {clientPage > 1 && (
+            <button onClick={goToPrevPage} disabled={loadingMore} className="btn-secondary text-sm">
               Previous
-            </Link>
+            </button>
           )}
-          {currentPage * 10 < total && (
-            <Link href={`${pathname}?page=${currentPage + 1}`} className="btn-secondary text-sm">
-              Load More
-            </Link>
+          {clientPage * 10 < total && (
+            <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+              {loadingMore ? "Loading..." : "Load More"}
+            </button>
           )}
         </div>
       </div>

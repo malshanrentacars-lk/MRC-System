@@ -74,7 +74,7 @@ export default function DepositsClient({ deposits: initialDeposits, total: initi
             {allDeposits.map((d) => {
               const isActive = activeStatuses.includes(d.status);
               return (
-                <tr key={d.id} onClick={() => router.push(`/rentals/${d.id}`)} className={`${isActive ? "bg-blue-50/20" : ""} cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100`}>
+                <tr key={d.id} onClick={() => router.push(`/rentals/${d.id}`)} className={`${isActive ? "bg-blue-50/20" : ""} cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm`}>
                   <td>
                     <span className="font-semibold text-blue-600">{d.rental_number}</span>
                   </td>

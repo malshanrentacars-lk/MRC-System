@@ -30,6 +30,12 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
   const [payDay2, setPayDay2] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15).getDate());
   const [regNumber, setRegNumber] = useState("");
   const [fuelType, setFuelType] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const filteredSuppliers = supplierSearch
+    ? suppliers.filter(s => s.name.toLowerCase().includes(supplierSearch.toLowerCase()))
+    : suppliers;
   const [currentKm, setCurrentKm] = useState(0);
   const [lastServiceKm, setLastServiceKm] = useState(0);
   const [nextServiceKm, setNextServiceKm] = useState<number | string>("");
@@ -219,12 +225,33 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
 
           {/* Supplier — only shown when source is Supplier */}
           {source === "Supplier" && (
-            <div>
+            <div className="relative">
               <label className="form-label">Supplier <span className="text-red-500">*</span></label>
-              <select name="supplier_id" required className="form-select">
-                <option value="">— No Supplier —</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <input type="hidden" name="supplier_id" value={selectedSupplierId} />
+              <input
+                type="text"
+                value={selectedSupplierId ? suppliers.find(s => s.id === selectedSupplierId)?.name || "" : supplierSearch}
+                onChange={e => { setSupplierSearch(e.target.value); setSelectedSupplierId(""); setShowSupplierDropdown(true); }}
+                onFocus={() => setShowSupplierDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
+                placeholder="Search supplier..."
+                required
+                autoComplete="off"
+                className="form-input"
+              />
+              {showSupplierDropdown && filteredSuppliers.length > 0 && (
+                <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredSuppliers.map(s => (
+                    <div
+                      key={s.id}
+                      className="px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm"
+                      onMouseDown={() => { setSelectedSupplierId(s.id); setSupplierSearch(""); setShowSupplierDropdown(false); }}
+                    >
+                      {s.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

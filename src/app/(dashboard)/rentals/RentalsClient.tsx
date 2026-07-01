@@ -129,7 +129,7 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
             {rentals.map((r) => {
               const overdue = r.status === "active" && isOverdue(r.end_date);
               return (
-                <tr key={r.id} onClick={() => router.push(`/rentals/${r.id}`)} className={`${overdue ? "bg-red-50/30" : ""} border-b border-gray-100 cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100`}>
+                <tr key={r.id} onClick={() => router.push(`/rentals/${r.id}`)} className={`${overdue ? "bg-red-50/30" : ""} border-b border-gray-100 cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm`}>
                   <td onClick={e => e.stopPropagation()}>
                     <Link href={`/rentals/${r.id}`} className="text-blue-500 hover:text-blue-700">
                       <Eye className="w-4 h-4" />

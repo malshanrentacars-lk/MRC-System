@@ -119,7 +119,7 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
               <tr><td colSpan={10} className="text-center py-12 text-gray-400">No vehicles found</td></tr>
             )}
             {allVehicles.map((v) => (
-              <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
+              <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
                 <td><span className="font-semibold text-gray-900">{v.reg_number}</span></td>
                 <td className="text-blue-600 font-medium">{v.brand}</td>
                 <td>{v.model}</td>

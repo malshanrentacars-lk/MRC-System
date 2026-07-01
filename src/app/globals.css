@@ -172,13 +172,16 @@
 
   /* Buttons */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors shadow-sm;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 active:bg-red-800 transition-all duration-200 ease-out shadow-sm hover:shadow-md active:scale-[0.97] active:shadow-sm;
   }
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-card text-foreground text-sm font-medium rounded-lg border border-border hover:bg-muted transition-colors;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-card text-foreground text-sm font-medium rounded-lg border border-border hover:bg-muted transition-all duration-200 ease-out hover:shadow-sm active:scale-[0.97];
   }
   .btn-danger {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors;
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-all duration-200 ease-out shadow-sm hover:shadow-md active:scale-[0.97] active:shadow-sm;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 ease-out active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed;
   }
 
   /* Scrollbar */

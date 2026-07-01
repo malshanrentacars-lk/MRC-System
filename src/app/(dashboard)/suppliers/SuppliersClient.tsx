@@ -74,7 +74,7 @@ export default function SuppliersClient({
               <tr><td colSpan={6} className="text-center py-12 text-gray-400">No suppliers found</td></tr>
             )}
             {allSuppliers.map(s => (
-              <tr key={s.id} onClick={() => router.push(`/suppliers/${s.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
+              <tr key={s.id} onClick={() => router.push(`/suppliers/${s.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
                 <td><p className="font-medium text-gray-900">{s.name}</p></td>
                 <td>{s.phone ?? "—"}</td>
                 <td className="text-gray-500">{s.email ?? "—"}</td>

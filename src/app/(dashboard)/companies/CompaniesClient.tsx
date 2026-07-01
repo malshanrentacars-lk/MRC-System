@@ -74,7 +74,7 @@ export default function CompaniesClient({
               <tr><td colSpan={5} className="text-center py-12 text-gray-400">No companies found</td></tr>
             )}
             {allCompanies.map(c => (
-              <tr key={c.id} onClick={() => router.push(`/companies/${c.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
+              <tr key={c.id} onClick={() => router.push(`/companies/${c.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
                 <td>
                   {c.logo_url ? (
                     <img src={c.logo_url} alt={c.name} className="h-8 w-8 rounded object-cover" />

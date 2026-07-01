@@ -72,7 +72,7 @@ export default function GuarantorsClient({
               <tr><td colSpan={5} className="text-center py-12 text-gray-400">No guarantors found</td></tr>
             )}
             {allGuarantors.map(g => (
-              <tr key={g.id} onClick={() => router.push(`/guarantors/${g.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
+              <tr key={g.id} onClick={() => router.push(`/guarantors/${g.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
                 <td><p className="font-medium text-gray-900">{g.name}</p></td>
                 <td className="text-gray-500">{g.nic ?? "—"}</td>
                 <td>{g.phone ?? "—"}</td>

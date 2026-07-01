@@ -130,7 +130,7 @@ export default function UsersClient({
               <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
+                  <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
                     <td><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
                     <td className="font-medium">{u.full_name}</td>
                     <td className="text-gray-500">{u.email ?? "—"}</td>

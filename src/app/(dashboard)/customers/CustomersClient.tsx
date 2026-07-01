@@ -106,7 +106,7 @@ export default function CustomersClient({ customers: initialCustomers, total: in
           <tbody>
             {allCustomers.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-400">No customers found</td></tr>}
             {allCustomers.map((c) => (
-              <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} className="cursor-pointer transition-colors duration-150 hover:bg-blue-50/70 active:bg-blue-100">
+              <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
                 <td><p className="font-medium text-gray-900">{c.name}</p></td>
                 <td className="text-gray-500">{c.nic ?? "—"}</td>
                 <td>{c.phone ?? "—"}</td>

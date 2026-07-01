@@ -8,6 +8,7 @@ import {
   Car,
   Users,
   Package,
+  Building2,
   Shield,
   CalendarDays,
   FileText,
@@ -26,7 +27,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/vehicles", icon: Car, label: "Vehicles" },
-  { href: "/companies", icon: Package, label: "Companies" },
+  { href: "/companies", icon: Building2, label: "Companies" },
   { href: "/suppliers", icon: Package, label: "Suppliers" },
   { href: "/customers", icon: Users, label: "Customers" },
   { href: "/guarantors", icon: Shield, label: "Guarantors" },

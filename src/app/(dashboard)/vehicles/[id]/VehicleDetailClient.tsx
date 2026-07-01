@@ -280,11 +280,10 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
 
-    const regDoc = (fd.get("registration_document_url") as string) || "";
     const revLic = (fd.get("revenue_license_url") as string) || "";
     const insurance = (fd.get("insurance_url") as string) || "";
-    if (!regDoc || !revLic || !insurance) {
-      setError("Please upload Vehicle Registration Document, Revenue License, and Insurance.");
+    if (!revLic || !insurance) {
+      setError("Please upload Revenue License and Insurance.");
       return;
     }
     const ecoTest = (fd.get("eco_test_url") as string) || "";
@@ -509,7 +508,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Vehicle Documents</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FileUploader
-                    label="Registration Document (JPG/PDF, max 5MB) *"
+                    label="Registration Document (JPG/PDF, max 5MB)"
                     fieldName="registration_document"
                     bucket="vehicle-documents"
                     folder={`${vehicle.reg_number}/registration`}

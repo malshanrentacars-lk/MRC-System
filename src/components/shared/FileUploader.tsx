@@ -242,10 +242,16 @@ export default function FileUploader({
           IMPORTANT: always render even when empty — empty string = "field was cleared" → server sets DB to null */}
       {files.length > 0 ? (
         files.map((f, i) => (
-          <input key={`h-url-${i}`} type="hidden" name={`${resolvedFieldName}_url`} value={f.url} />
+          <span key={`h-${i}`}>
+            <input type="hidden" name={`${resolvedFieldName}_url`} value={f.url} />
+            <input type="hidden" name={`${resolvedFieldName}_path`} value={f.path || f.url} />
+          </span>
         ))
       ) : (
-        <input type="hidden" name={`${resolvedFieldName}_url`} value="" />
+        <>
+          <input type="hidden" name={`${resolvedFieldName}_url`} value="" />
+          <input type="hidden" name={`${resolvedFieldName}_path`} value="" />
+        </>
       )}
     </div>
   );

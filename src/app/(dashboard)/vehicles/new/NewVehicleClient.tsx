@@ -111,12 +111,11 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
 
-    const regDoc = (fd.get("registration_document_url") as string) || "";
     const revLic = (fd.get("revenue_license_url") as string) || "";
     const insurance = (fd.get("insurance_url") as string) || "";
     const fuelType = (fd.get("fuel_type") as string) || "";
-    if (!regDoc || !revLic || !insurance) {
-      setError("Please upload Vehicle Registration Document, Revenue License, and Insurance.");
+    if (!revLic || !insurance) {
+      setError("Please upload Revenue License and Insurance.");
       return;
     }
     const ecoTest = (fd.get("eco_test_url") as string) || "";
@@ -394,13 +393,14 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
             accept="image/*"
             multiple={true}
             maxFiles={6}
+            fieldName="vehicle_photos"
           />
         </div>
 
         {/* Vehicle Registration Document Upload */}
         <div className="px-5 pb-5">
           <FileUploader
-            label="Vehicle Registration Document (JPG/PDF, max 5MB) *"
+            label="Vehicle Registration Document (JPG/PDF, max 5MB)"
             bucket="vehicle-documents"
             folder={`${regNumber || 'vehicles/new'}/registration`}
             accept=".jpg,.jpeg,.pdf"

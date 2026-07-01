@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Plus, Edit, ToggleLeft, ToggleRight, Eye, Users, Activity } from "lucide-react";
+import { Plus, Users, Activity, Eye } from "lucide-react";
 import { createUser, updateUser, toggleUserActive } from "@/app/actions/users";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -33,8 +32,6 @@ export default function UsersClient({
       const result = editUser ? await updateUser(editUser.id, fd) : await createUser(fd);
       if ("error" in result && result.error) { setError(result.error); return; }
       setShowForm(false); setEditUser(null);
-      // push + refresh ensures the new session cookie (updated name) is
-      // read by the layout server component immediately
       router.push('/users');
       router.refresh();
     });
@@ -50,24 +47,19 @@ export default function UsersClient({
   }
 
   const tabs = [
-    ...(isAdmin ? [{ key: "users" as const, label: "Staff Accounts", icon: Users }] : []),
+    ...(isAdmin ? [{ key: "users" as const, label: "Users", icon: Users }] : []),
     { key: "activity" as const, label: "Activity Log", icon: Activity },
   ];
 
   return (
     <div className="section-card overflow-hidden">
-      {/* Tab bar */}
       <div className="px-5 pt-4 border-b border-gray-100 flex items-center justify-between">
         <div className="flex gap-1">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                tab === key
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === key ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
             >
               <Icon className="w-3.5 h-3.5" />
               {label}
@@ -75,18 +67,13 @@ export default function UsersClient({
           ))}
         </div>
 
-        {/* Add User button — only on Staff Accounts tab */}
         {tab === "users" && isAdmin && (
-          <button
-            onClick={() => { setEditUser(null); setShowForm(true); }}
-            className="btn-primary text-sm"
-          >
+          <button onClick={() => { setEditUser(null); setShowForm(true); }} className="btn-primary text-sm">
             <Plus className="w-4 h-4" /> Add User
           </button>
         )}
       </div>
 
-      {/* ── Staff Accounts tab ── */}
       {tab === "users" && isAdmin && (
         <>
           {(showForm || editUser) && (
@@ -127,15 +114,37 @@ export default function UsersClient({
 
           <div className="overflow-x-auto">
             <table className="data-table">
-              <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+              <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
-                    <td><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
-                    <td className="font-medium">{u.full_name}</td>
-                    <td className="text-gray-500">{u.email ?? "—"}</td>
-                    <td><StatusBadge status={u.role} /></td>
-                    <td><StatusBadge status={u.is_active ? "available" : "cancelled"} /></td>
+                  <tr key={u.id} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
+                    <td onClick={() => router.push(`/users/${u.id}`)}><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
+                    <td onClick={() => router.push(`/users/${u.id}`)} className="font-medium">{u.full_name}</td>
+                    <td onClick={() => router.push(`/users/${u.id}`)} className="text-gray-500">{u.email ?? "—"}</td>
+                    <td onClick={() => router.push(`/users/${u.id}`)}><StatusBadge status={u.role} /></td>
+                    <td onClick={() => router.push(`/users/${u.id}`)}><StatusBadge status={u.is_active ? "available" : "cancelled"} /></td>
+                    <td>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditUser(u); setShowForm(true); }}
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setConfirmToggle(u); }}
+                          className={`text-xs ${u.is_active ? "text-red-600" : "text-green-600"} hover:underline`}
+                        >
+                          {u.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); router.push(`/users/${u.id}`); }}
+                          className="text-xs text-gray-500 hover:underline"
+                        >
+                          <Eye className="w-3 h-3 inline mr-0.5" /> View
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -152,7 +161,6 @@ export default function UsersClient({
         </>
       )}
 
-      {/* ── Activity Log tab ── */}
       {tab === "activity" && (
         <ActivityLogTab
           isAdmin={isAdmin}

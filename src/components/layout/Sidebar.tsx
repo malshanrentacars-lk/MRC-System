@@ -33,15 +33,14 @@ const navItems = [
   { href: "/guarantors", icon: Shield, label: "Guarantors" },
   { href: "/rentals", icon: CalendarDays, label: "Rentals" },
   { href: "/refundable-deposits", icon: Banknote, label: "Refundable Deposits" },
+  { href: "/users", icon: UserCog, label: "Users" },
   { href: "/calendar", icon: CalendarDays, label: "Calendar" },
   { href: "/agreements", icon: FileText, label: "Agreements" },
   { href: "/dashboard/whatsapp", icon: MessageCircle, label: "WhatsApp" },
   { href: "/dashboard/attendance", icon: Clock3, label: "Attendance" },
 ];
 
-// Admin-only nav (Users management + company settings)
 const adminItems = [
-  { href: "/users", icon: UserCog, label: "Users" },
   { href: "/settings", icon: Settings, label: "Company" },
 ];
 
@@ -124,7 +123,7 @@ function SidebarInner({
           ))}
         </div>
 
-        {user.role === "admin" ? (
+        {user.role === "admin" && (
           <>
             <div className="mt-4 mb-1 px-1 md:px-3">
               <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground md:text-left">Admin</p>
@@ -133,19 +132,6 @@ function SidebarInner({
               {adminItems.map((item) => (
                 <NavLink key={item.href} item={item} pathname={pathname} onNavigate={() => {}} />
               ))}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="mt-4 mb-1 px-1 md:px-3">
-              <p className="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground md:text-left">My Account</p>
-            </div>
-            <div className="space-y-0.5">
-              <NavLink
-                item={{ href: "/users", icon: UserCog, label: "Activity Log" }}
-                pathname={pathname}
-                onNavigate={() => {}}
-              />
             </div>
           </>
         )}

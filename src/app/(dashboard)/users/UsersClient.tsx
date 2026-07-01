@@ -47,7 +47,7 @@ export default function UsersClient({
   }
 
   const tabs = [
-    ...(isAdmin ? [{ key: "users" as const, label: "Users", icon: Users }] : []),
+    { key: "users" as const, label: "Users", icon: Users },
     { key: "activity" as const, label: "Activity Log", icon: Activity },
   ];
 
@@ -67,14 +67,14 @@ export default function UsersClient({
           ))}
         </div>
 
-        {tab === "users" && isAdmin && (
+        {tab === "users" && (
           <button onClick={() => { setEditUser(null); setShowForm(true); }} className="btn-primary text-sm">
             <Plus className="w-4 h-4" /> Add User
           </button>
         )}
       </div>
 
-      {tab === "users" && isAdmin && (
+      {tab === "users" && (
         <>
           {(showForm || editUser) && (
             <div className="border-b border-gray-100 p-5 bg-blue-50/30">

@@ -15,6 +15,8 @@ export const BRANDS = [
   { name: "Mercedes-Benz", models: ["C-Class","E-Class","Other"] },
   { name: "Audi", models: ["A4","Q5","Other"] },
   { name: "Land Rover", models: ["Range Rover","Other"] },
+  { name: "MG", models: ["ZS"] },
+  { name: "DFSK", models: ["I Auto"] },
   { name: "Renault", models: ["Kwid"] },
   { name: "Mahindra", models: ["Kuv 100"] },
   { name: "Other", models: ["Other"] },

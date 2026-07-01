@@ -14,7 +14,7 @@ const USER_FIELDS: Record<string, string> = {
 };
 
 export async function getUsers() {
-  await requireAdmin();
+  await requireAuth();
   const { data, error } = await supabaseAdmin.from('users').select('id, username, full_name, email, role, is_active, created_at').order('created_at', { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];

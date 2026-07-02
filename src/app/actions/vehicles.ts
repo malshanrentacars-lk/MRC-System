@@ -117,7 +117,8 @@ function parseVehicleFields(formData: FormData) {
     insurance_expiry: formData.get('insurance_expiry') as string || null,
     revenue_license_expiry: formData.get('revenue_license_expiry') as string || null,
     eco_test_expiry: formData.get('eco_test_expiry') as string || null,
-    rental_start_date: formData.get('rental_start_date') as string || null,
+    agreement_start_date: formData.get('agreement_start_date') as string || null,
+    agreement_period: formData.get('agreement_period') as string || null,
     renew_date: formData.get('renew_date') as string || null,
     registration_document_url: (formData.get('registration_document_url') as string) || null,
     registration_document_path: (formData.get('registration_document_path') as string) || null,
@@ -215,7 +216,7 @@ export async function createVehicle(formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
-        rental_start_date, renew_date, fuel_type, transmission, company_id,
+        agreement_start_date, agreement_period, renew_date, fuel_type, transmission, company_id,
         ...dataWithoutDocs 
       } = vehicleData;
       const { data: d2, error: e2 } = await supabaseAdmin
@@ -330,7 +331,7 @@ export async function updateVehicle(id: string, formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
-        rental_start_date, renew_date, fuel_type, transmission, company_id,
+        agreement_start_date, agreement_period, renew_date, fuel_type, transmission, company_id,
         ...dataWithoutDocs 
       } = updateData;
       const { error: e2 } = await supabaseAdmin.from('vehicles').update(dataWithoutDocs).eq('id', id);

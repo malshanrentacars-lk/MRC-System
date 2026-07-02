@@ -180,9 +180,9 @@ export default function FileUploader({
                     Open
                   </a>
                 </div>
-              ) : (
+              ) : file.url ? (
                 <Image src={file.url} alt={`upload-${i}`} fill className="object-cover" unoptimized />
-              )}
+              ) : null}
 
               {/* Hover overlay with delete */}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-10">

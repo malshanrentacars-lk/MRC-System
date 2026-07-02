@@ -2,9 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Users, Activity, Eye } from "lucide-react";
-import { createUser, updateUser, toggleUserActive } from "@/app/actions/users";
-import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
+import { Plus, Users, Activity } from "lucide-react";
+import { createUser, updateUser } from "@/app/actions/users";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ActivityLogTab from "./ActivityLogTab";
 import { User } from "@/types";
@@ -22,7 +21,6 @@ export default function UsersClient({
   const [editUser, setEditUser] = useState<User | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [confirmToggle, setConfirmToggle] = useState<User | null>(null);
   const [tab, setTab] = useState<"users" | "activity">(isAdmin ? "users" : "activity");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -33,15 +31,6 @@ export default function UsersClient({
       if ("error" in result && result.error) { setError(result.error); return; }
       setShowForm(false); setEditUser(null);
       router.push('/users');
-      router.refresh();
-    });
-  }
-
-  async function handleToggle() {
-    if (!confirmToggle) return;
-    startTransition(async () => {
-      await toggleUserActive(confirmToggle.id, !confirmToggle.is_active);
-      setConfirmToggle(null);
       router.refresh();
     });
   }
@@ -114,50 +103,20 @@ export default function UsersClient({
 
           <div className="overflow-x-auto">
             <table className="data-table">
-              <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
               <tbody>
                 {users.map(u => (
-                  <tr key={u.id} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
-                    <td onClick={() => router.push(`/users/${u.id}`)}><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
-                    <td onClick={() => router.push(`/users/${u.id}`)} className="font-medium">{u.full_name}</td>
-                    <td onClick={() => router.push(`/users/${u.id}`)} className="text-gray-500">{u.email ?? "—"}</td>
-                    <td onClick={() => router.push(`/users/${u.id}`)}><StatusBadge status={u.role} /></td>
-                    <td onClick={() => router.push(`/users/${u.id}`)}><StatusBadge status={u.is_active ? "available" : "cancelled"} /></td>
-                    <td>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setEditUser(u); setShowForm(true); }}
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setConfirmToggle(u); }}
-                          className={`text-xs ${u.is_active ? "text-red-600" : "text-green-600"} hover:underline`}
-                        >
-                          {u.is_active ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); router.push(`/users/${u.id}`); }}
-                          className="text-xs text-gray-500 hover:underline"
-                        >
-                          <Eye className="w-3 h-3 inline mr-0.5" /> View
-                        </button>
-                      </div>
-                    </td>
+                  <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
+                    <td><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
+                    <td className="font-medium">{u.full_name}</td>
+                    <td className="text-gray-500">{u.email ?? "—"}</td>
+                    <td><StatusBadge status={u.role} /></td>
+                    <td><StatusBadge status={u.is_active ? "available" : "cancelled"} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          <PasswordConfirmModal
-            open={!!confirmToggle}
-            onOpenChange={() => setConfirmToggle(null)}
-            title={confirmToggle?.is_active ? "Deactivate User" : "Activate User"}
-            description={`Toggle active status for ${confirmToggle?.full_name}?`}
-            onConfirm={handleToggle}
-          />
         </>
       )}
 

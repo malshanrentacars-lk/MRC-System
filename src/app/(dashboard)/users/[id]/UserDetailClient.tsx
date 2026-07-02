@@ -4,11 +4,11 @@ import { useState, useTransition, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, User, Edit, Activity, Shield, Mail, Calendar,
-  AlertCircle, RefreshCw, ChevronDown
+  AlertCircle, RefreshCw, ChevronDown, Trash2
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { updateUser } from "@/app/actions/users";
+import { updateUser, toggleUserActive } from "@/app/actions/users";
 import { getActivityLogs } from "@/app/actions/activity";
 import { useRouter } from "next/navigation";
 
@@ -256,6 +256,16 @@ export default function UserDetailClient({
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmToggle, setConfirmToggle] = useState(false);
+
+  async function handleToggleActive() {
+    startTransition(async () => {
+      await toggleUserActive(user.id, !user.is_active);
+      setConfirmToggle(false);
+      router.push(`/users/${user.id}`);
+      router.refresh();
+    });
+  }
 
   // Activity Logs tab: admin can see for any user; employees only for their own
   const canSeeActivity = isAdmin || isOwnProfile;
@@ -320,12 +330,23 @@ export default function UserDetailClient({
               </button>
             ))}
           </div>
-          {/* Edit button — only on Details tab, only for admins */}
-          {tab === "details" && isAdmin && !isEditing && (
-            <button onClick={() => setIsEditing(true)} className="btn-secondary text-sm">
-              <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-            </button>
-          )}
+          {/* Edit/Deactivate — only on Details tab */}
+          <div className="flex gap-2">
+            {tab === "details" && !isEditing && (
+              <>
+                {(isAdmin || isOwnProfile) && (
+                  <button onClick={() => setIsEditing(true)} className="btn-secondary text-sm">
+                    <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                  </button>
+                )}
+                {isAdmin && (
+                  <button onClick={() => setConfirmToggle(true)} className="btn-danger text-sm">
+                    <Trash2 className="w-3.5 h-3.5 mr-1" /> {user.is_active ? "Deactivate" : "Activate"}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* ── Details Tab ── */}
@@ -421,6 +442,24 @@ export default function UserDetailClient({
           <UserActivityLog userId={user.id} />
         )}
       </div>
+
+      {/* Toggle confirmation dialog */}
+      {confirmToggle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">{user.is_active ? "Deactivate User" : "Activate User"}</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to {user.is_active ? "deactivate" : "activate"} <strong>{user.full_name}</strong>?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmToggle(false)} className="btn-secondary text-sm">Cancel</button>
+              <button onClick={handleToggleActive} disabled={isPending} className="btn-primary text-sm">
+                {isPending ? "Processing..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

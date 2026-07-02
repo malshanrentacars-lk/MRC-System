@@ -42,6 +42,28 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
   const [serviceInterval, setServiceInterval] = useState("");
   const [lastServiceDate, setLastServiceDate] = useState("");
   const [nextServiceDate, setNextServiceDate] = useState("");
+  const [agreementPeriod, setAgreementPeriod] = useState("");
+  const [agreementStartDate, setAgreementStartDate] = useState("");
+  const [renewDate, setRenewDate] = useState("");
+
+  function calcRenewDate(startDate: string, period: string) {
+    if (!startDate || !period) return "";
+    const date = new Date(startDate + "T00:00:00");
+    if (isNaN(date.getTime())) return "";
+    const months = parseInt(period);
+    date.setMonth(date.getMonth() + months);
+    return date.toISOString().split("T")[0];
+  }
+
+  function handleAgreementStartDateChange(date: string) {
+    setAgreementStartDate(date);
+    setRenewDate(calcRenewDate(date, agreementPeriod));
+  }
+
+  function handleAgreementPeriodChange(period: string) {
+    setAgreementPeriod(period);
+    setRenewDate(calcRenewDate(agreementStartDate, period));
+  }
 
   // Rate tiers
   const [monthlyRate, setMonthlyRate] = useState<number | string>("");
@@ -378,12 +400,21 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
             <input name="eco_test_expiry" type="date" className="form-input" />
           </div>
           <div>
-            <label className="form-label">Rental Start Date <span className="text-red-500">*</span></label>
-            <input name="rental_start_date" type="date" required className="form-input" />
+            <label className="form-label">Agreement Start Date <span className="text-red-500">*</span></label>
+            <input name="agreement_start_date" type="date" required className="form-input" value={agreementStartDate} onChange={e => handleAgreementStartDateChange(e.target.value)} />
+          </div>
+          <div>
+            <label className="form-label">Agreement Period <span className="text-red-500">*</span></label>
+            <select name="agreement_period" required className="form-select" value={agreementPeriod} onChange={e => handleAgreementPeriodChange(e.target.value)}>
+              <option value="">— Select —</option>
+              <option value="3">3 Months</option>
+              <option value="6">6 Months</option>
+              <option value="12">1 Year</option>
+            </select>
           </div>
           <div>
             <label className="form-label">Renew Date <span className="text-red-500">*</span></label>
-            <input name="renew_date" type="date" required className="form-input" />
+            <input name="renew_date" type="date" required className="form-input" value={renewDate} onChange={e => setRenewDate(e.target.value)} />
           </div>
         </div>
 

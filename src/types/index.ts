@@ -94,7 +94,8 @@ export interface Vehicle {
   insurance_expiry?: string;
   revenue_license_expiry?: string;
   eco_test_expiry?: string;
-  rental_start_date?: string;
+  agreement_start_date?: string;
+  agreement_period?: string;
   renew_date?: string;
   handover_date?: string;
   agreement_end_date?: string;

@@ -228,6 +228,27 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
   const [editNextServiceKm, setEditNextServiceKm] = useState(vehicle.next_service_km || 5000);
   const [editLastServiceDate, setEditLastServiceDate] = useState(vehicle.last_service_date || "");
   const [editNextServiceDate, setEditNextServiceDate] = useState(vehicle.next_service_date || "");
+  const [editAgreementPeriod, setEditAgreementPeriod] = useState(vehicle.agreement_period || "");
+  const [editAgreementStartDate, setEditAgreementStartDate] = useState(vehicle.agreement_start_date || "");
+  const [editRenewDate, setEditRenewDate] = useState(vehicle.renew_date || "");
+
+  function calcEditRenewDate(startDate: string, period: string) {
+    if (!startDate || !period) return "";
+    const date = new Date(startDate + "T00:00:00");
+    if (isNaN(date.getTime())) return "";
+    date.setMonth(date.getMonth() + parseInt(period));
+    return date.toISOString().split("T")[0];
+  }
+
+  function handleEditAgreementStartDateChange(date: string) {
+    setEditAgreementStartDate(date);
+    setEditRenewDate(calcEditRenewDate(date, editAgreementPeriod));
+  }
+
+  function handleEditAgreementPeriodChange(period: string) {
+    setEditAgreementPeriod(period);
+    setEditRenewDate(calcEditRenewDate(editAgreementStartDate, period));
+  }
 
   function calcEditNextServiceDate(lastDate: string, interval: string) {
     if (!lastDate || !interval) return "";
@@ -497,12 +518,21 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   <input name="eco_test_expiry" type="date" defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
                 </div>
                 <div>
-                  <label className="form-label text-sm">Rental Start Date <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="rental_start_date" type="date" required defaultValue={vehicle.rental_start_date ?? ""} className="form-input text-sm" />
+                  <label className="form-label text-sm">Agreement Start Date <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="agreement_start_date" type="date" required value={editAgreementStartDate} onChange={e => handleEditAgreementStartDateChange(e.target.value)} className="form-input text-sm" />
+                </div>
+                <div>
+                  <label className="form-label text-sm">Agreement Period <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="agreement_period" required className="form-select text-sm" value={editAgreementPeriod} onChange={e => handleEditAgreementPeriodChange(e.target.value)}>
+                    <option value="">— Select —</option>
+                    <option value="3">3 Months</option>
+                    <option value="6">6 Months</option>
+                    <option value="12">1 Year</option>
+                  </select>
                 </div>
                 <div>
                   <label className="form-label text-sm">Renew Date <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="renew_date" type="date" required defaultValue={vehicle.renew_date ?? ""} className="form-input text-sm" />
+                  <input name="renew_date" type="date" required value={editRenewDate} onChange={e => setEditRenewDate(e.target.value)} className="form-input text-sm" />
                 </div>
                 <div>
                   <label className="form-label text-sm">Notes</label>
@@ -671,8 +701,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   { label: "Transmission", value: vehicle.transmission ?? "—" },
                   { label: "Status", value: <StatusBadge status={vehicle.status} /> },
                   { label: "Current KM", value: (vehicle.current_km || 0).toLocaleString() + " km" },
-                  { label: "Next Service KM", value: (vehicle.next_service_km || 0).toLocaleString() + " km" },
+                  { label: "Agreement Start Date", value: formatDate(vehicle.agreement_start_date) },
+                  { label: "Agreement Period", value: vehicle.agreement_period ? `${vehicle.agreement_period} Months` : "—" },
+                  { label: "Renew Date", value: formatDate(vehicle.renew_date) },
                   { label: "Daily Rate", value: formatCurrency(vehicle.daily_rate) },
+                  { label: "Next Service KM", value: (vehicle.next_service_km || 0).toLocaleString() + " km" },
                 ].map(f => (
                   <div key={f.label}>
                     <p className="text-xs text-gray-400 mb-0.5">{f.label}</p>
@@ -926,6 +959,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {localPhotos.map((p: any) => (
+                        p.url ? (
                         <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="block group">
                           <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
                             <img src={p.url} alt="Vehicle" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
@@ -934,6 +968,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                             </div>
                           </div>
                         </a>
+                        ) : null
                       ))}
                     </div>
                     <p className="text-xs text-gray-400 mt-3 text-center">Click <strong>Edit</strong> to add or remove photos.</p>

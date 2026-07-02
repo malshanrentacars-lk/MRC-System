@@ -25,11 +25,6 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const isAdmin = session.role === "admin";
   const isOwnProfile = session.id === p.id;
 
-  // Employees can only view their own profile
-  if (!isAdmin && !isOwnProfile) {
-    redirect("/dashboard");
-  }
-
   return (
     <UserDetailClient
       user={user}

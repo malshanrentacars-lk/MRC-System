@@ -141,8 +141,9 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
       return;
     }
     const ecoTest = (fd.get("eco_test_url") as string) || "";
-    if ((fuelType === "Petrol" || fuelType === "Diesel") && !ecoTest) {
-      setError("Please upload Eco Test document (required for Petrol/Diesel vehicles).");
+    const ecoTestExpiry = (fd.get("eco_test_expiry") as string) || "";
+    if ((fuelType === "Petrol" || fuelType === "Diesel") && (!ecoTest || !ecoTestExpiry)) {
+      setError("Please upload Eco Test document and set Eco Test Expiry (required for Petrol/Diesel vehicles).");
       return;
     }
 
@@ -395,10 +396,12 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
             <label className="form-label">Revenue License Expiry <span className="text-red-500">*</span></label>
             <input name="revenue_license_expiry" type="date" required className="form-input" />
           </div>
+          {(fuelType === "Petrol" || fuelType === "Diesel") && (
           <div>
-            <label className="form-label">Eco Test Expiry</label>
-            <input name="eco_test_expiry" type="date" className="form-input" />
+            <label className="form-label">Eco Test Expiry <span className="text-red-500">*</span></label>
+            <input name="eco_test_expiry" type="date" required className="form-input" />
           </div>
+          )}
           <div>
             <label className="form-label">Agreement Start Date <span className="text-red-500">*</span></label>
             <input name="agreement_start_date" type="date" required className="form-input" value={agreementStartDate} onChange={e => handleAgreementStartDateChange(e.target.value)} />
@@ -461,8 +464,9 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
             maxFiles={1}
             fieldName="revenue_license"
           />
+          {(fuelType === "Petrol" || fuelType === "Diesel") && (
           <FileUploader
-            label={`Eco Test (JPG/PDF, max 5MB)${fuelType === "Petrol" || fuelType === "Diesel" ? " *" : ""}`}
+            label="Eco Test (JPG/PDF, max 5MB) *"
             bucket="vehicle-documents"
             folder={`${regNumber || 'vehicles/new'}/eco_test`}
             accept=".jpg,.jpeg,.pdf"
@@ -470,6 +474,7 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
             maxFiles={1}
             fieldName="eco_test"
           />
+          )}
           <FileUploader
             label="Insurance (JPG/PDF, max 5MB) *"
             bucket="vehicle-documents"

@@ -113,6 +113,13 @@ export async function createSupplier(formData: FormData) {
   await requireAuth();
 
   const payload = buildSupplierPayload(formData);
+
+  // Check for duplicate NIC
+  if (payload.nic) {
+    const { data: existing } = await supabaseAdmin.from('suppliers')
+      .select('id').eq('nic', payload.nic).maybeSingle();
+    if (existing) return { error: "Supplier NIC already available." };
+  }
   const { data, error } = await supabaseAdmin.from('suppliers').insert(payload).select().single();
 
   if (error) {
@@ -146,6 +153,13 @@ export async function updateSupplier(id: string, formData: FormData) {
   await requireAuth();
 
   const payload = buildSupplierPayload(formData);
+
+  // Check for duplicate NIC
+  if (payload.nic) {
+    const { data: existing } = await supabaseAdmin.from('suppliers')
+      .select('id').eq('nic', payload.nic).neq('id', id).maybeSingle();
+    if (existing) return { error: "Supplier NIC already available." };
+  }
 
   // Fetch current record and clean up old storage files
   const { data: current } = await supabaseAdmin

@@ -309,8 +309,9 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
       return;
     }
     const ecoTest = (fd.get("eco_test_url") as string) || "";
-    if ((editFuelType === "Petrol" || editFuelType === "Diesel") && !ecoTest) {
-      setError("Please upload Eco Test document (required for Petrol/Diesel vehicles).");
+    const ecoTestExpiry = (fd.get("eco_test_expiry") as string) || "";
+    if ((editFuelType === "Petrol" || editFuelType === "Diesel") && (!ecoTest || !ecoTestExpiry)) {
+      setError("Please upload Eco Test document and set Eco Test Expiry (required for Petrol/Diesel vehicles).");
       return;
     }
 
@@ -513,10 +514,12 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   <label className="form-label text-sm">Revenue License Expiry <span className="text-red-500 ml-0.5">*</span></label>
                   <input name="revenue_license_expiry" type="date" required defaultValue={vehicle.revenue_license_expiry ?? ""} className="form-input text-sm" />
                 </div>
+                {(editFuelType === "Petrol" || editFuelType === "Diesel") && (
                 <div>
-                  <label className="form-label text-sm">Eco Test Expiry</label>
-                  <input name="eco_test_expiry" type="date" defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
+                  <label className="form-label text-sm">Eco Test Expiry <span className="text-red-500 ml-0.5">*</span></label>
+                  <input name="eco_test_expiry" type="date" required defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
                 </div>
+                )}
                 <div>
                   <label className="form-label text-sm">Agreement Start Date <span className="text-red-500 ml-0.5">*</span></label>
                   <input name="agreement_start_date" type="date" required value={editAgreementStartDate} onChange={e => handleEditAgreementStartDateChange(e.target.value)} className="form-input text-sm" />
@@ -565,8 +568,9 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                     maxFiles={1}
                     initialFiles={vehicle.revenue_license_url ? [{ url: vehicle.revenue_license_url, path: vehicle.revenue_license_path || "" }] : []}
                   />
+                  {(editFuelType === "Petrol" || editFuelType === "Diesel") && (
                   <FileUploader
-                    label={`Eco Test (JPG/PDF, max 5MB)${editFuelType === "Petrol" || editFuelType === "Diesel" ? " *" : ""}`}
+                    label="Eco Test (JPG/PDF, max 5MB) *"
                     fieldName="eco_test"
                     bucket="vehicle-documents"
                     folder={`${vehicle.reg_number}/eco_test`}
@@ -575,6 +579,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                     maxFiles={1}
                     initialFiles={vehicle.eco_test_url ? [{ url: vehicle.eco_test_url, path: vehicle.eco_test_path || "" }] : []}
                   />
+                  )}
                   <FileUploader
                     label="Insurance (JPG/PDF, max 5MB) *"
                     fieldName="insurance"
@@ -987,7 +992,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   {[
                     { label: "Insurance Expiry", value: vehicle.insurance_expiry, icon: "🛡️" },
                     { label: "Revenue License Expiry", value: vehicle.revenue_license_expiry, icon: "📋" },
-                    { label: "Eco Test Expiry", value: vehicle.eco_test_expiry, icon: "🍃" },
+                    ...(vehicle.fuel_type === "Petrol" || vehicle.fuel_type === "Diesel" ? [{ label: "Eco Test Expiry", value: vehicle.eco_test_expiry, icon: "🍃" }] : []),
                   ].map(item => {
                     const isExpired = item.value && new Date(item.value) < new Date();
                     const isSoon = item.value && !isExpired && (new Date(item.value).getTime() - Date.now()) < 30 * 86400000;

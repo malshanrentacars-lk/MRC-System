@@ -234,8 +234,8 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
 
           {/* Company */}
           <div>
-            <label className="form-label">Company</label>
-            <select name="company_id" className="form-select">
+            <label className="form-label">Company <span className="text-red-500">*</span></label>
+            <select name="company_id" required className="form-select">
               <option value="">— Select Company —</option>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

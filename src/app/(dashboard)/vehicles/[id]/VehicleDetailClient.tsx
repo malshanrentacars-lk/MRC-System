@@ -393,8 +393,8 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   </select>
                 </div>
                 <div>
-                  <label className="form-label text-sm">Company</label>
-                  <select name="company_id" defaultValue={vehicle.company_id ?? vehicle.company?.id ?? ""} className="form-select text-sm">
+                  <label className="form-label text-sm">Company <span className="text-red-500 ml-0.5">*</span></label>
+                  <select name="company_id" required defaultValue={vehicle.company_id ?? vehicle.company?.id ?? ""} className="form-select text-sm">
                     <option value="">— Select Company —</option>
                     {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>

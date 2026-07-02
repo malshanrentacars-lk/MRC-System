@@ -54,8 +54,6 @@ export interface Company extends AddressParts {
 export interface Supplier extends AddressParts {
   id: string;
   name: string;
-  company_id?: string;
-  company?: Company;
   phone?: string;
   phone2?: string;
   email?: string;
@@ -84,6 +82,8 @@ export interface Vehicle {
   source: VehicleSource;
   supplier_id?: string;
   supplier?: Supplier;
+  company_id?: string;
+  company?: Company;
   status: VehicleStatus;
   daily_rate: number;
   current_km: number;

@@ -1,10 +1,12 @@
 import { getSuppliers } from "@/app/actions/suppliers";
+import { getCompanies } from "@/app/actions/companies";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import NewVehicleClient from "./NewVehicleClient";
 
 export default async function NewVehiclePage() {
   const { data: suppliers } = await getSuppliers({ pageSize: 100 });
+  const { data: companies } = await getCompanies({ pageSize: 100 });
   return (
     <div className="space-y-5 animate-fade-in max-w-4xl">
       <div className="flex items-center gap-3">
@@ -16,7 +18,7 @@ export default async function NewVehiclePage() {
           <p className="page-subtitle">Register a new vehicle in the fleet</p>
         </div>
       </div>
-      <NewVehicleClient suppliers={suppliers} />
+      <NewVehicleClient suppliers={suppliers} companies={companies} />
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { buildDiff } from '@/lib/diff';
 import { readAddressForm } from '@/lib/address';
 
 const SUPPLIER_FIELDS: Record<string, string> = {
-  name: 'Name', company_id: 'Company', phone: 'Phone', phone2: 'Phone 2',
+  name: 'Name', phone: 'Phone', phone2: 'Phone 2',
   email: 'Email', street_address: 'Street Address', street_address_2: 'Street Address 2', city: 'City', postal_code: 'Postal Code', nic: 'NIC', notes: 'Notes',
   bank: 'Bank', account_number: 'Account Number', branch: 'Branch',
 };
@@ -49,7 +49,6 @@ function buildSupplierPayload(formData: FormData) {
 
   return {
     name: formData.get('name') as string,
-    company_id: (formData.get('company_id') as string || '').trim() || null,
     phone: formData.get('phone') as string || null,
     phone2: formData.get('phone2') as string || null,
     email: formData.get('email') as string || null,
@@ -119,7 +118,7 @@ export async function createSupplier(formData: FormData) {
   if (error) {
     if (error.message.includes('column') && error.message.includes('schema cache')) {
       // Schema migration not yet run — retry without company/file columns
-      const { company_id, name, phone, phone2, email, address, nic, notes } = payload;
+      const { name, phone, phone2, email, address, nic, notes } = payload;
       const { data: d2, error: e2 } = await supabaseAdmin.from('suppliers')
         .insert({ name, phone, phone2, email, address, nic, notes }).select().single();
       if (e2) return { error: e2.message };
@@ -151,7 +150,7 @@ export async function updateSupplier(id: string, formData: FormData) {
   // Fetch current record and clean up old storage files
   const { data: current } = await supabaseAdmin
     .from('suppliers')
-    .select('name, company_id, phone, phone2, email, street_address, street_address_2, city, postal_code, address, nic, notes, bank, account_number, branch, nic_front_url, nic_back_url')
+    .select('name, phone, phone2, email, street_address, street_address_2, city, postal_code, address, nic, notes, bank, account_number, branch, nic_front_url, nic_back_url')
     .eq('id', id)
     .single();
 
@@ -166,7 +165,7 @@ export async function updateSupplier(id: string, formData: FormData) {
 
   if (error) {
     if (error.message.includes('column') && error.message.includes('schema cache')) {
-      const { company_id, name, phone, phone2, email, address, nic, notes } = payload;
+      const { name, phone, phone2, email, address, nic, notes } = payload;
       const { error: e2 } = await supabaseAdmin.from('suppliers')
         .update({ name, phone, phone2, email, address, nic, notes }).eq('id', id);
       if (e2) return { error: e2.message };

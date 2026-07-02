@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Vehicle, Supplier, Rental } from "@/types";
+import { Vehicle, Supplier, Rental, Company } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { updateVehicle, deleteVehicle, uploadVehiclePhoto, deleteVehiclePhoto } from "@/app/actions/vehicles";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
@@ -19,6 +19,7 @@ import FileUploader, { UploadedFile } from "@/components/shared/FileUploader";
 interface Props {
   vehicle: Vehicle;
   suppliers: Supplier[];
+  companies: Company[];
   rentals: Rental[];
 }
 
@@ -181,7 +182,7 @@ function FinancialsTab({
   );
 }
 
-export default function VehicleDetailClient({ vehicle: initial, suppliers, rentals }: Props) {
+export default function VehicleDetailClient({ vehicle: initial, suppliers, companies, rentals }: Props) {
   const router = useRouter();
   const [vehicle, setVehicle] = useState(initial);
   // Separate local photos state — updates immediately on upload/delete
@@ -389,6 +390,13 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                   <select name="source" required value={editSource} onChange={e => setEditSource(e.target.value as "Company" | "Supplier")} className="form-select text-sm">
                     <option value="Company">Company</option>
                     <option value="Supplier">Supplier</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label text-sm">Company</label>
+                  <select name="company_id" defaultValue={vehicle.company_id ?? vehicle.company?.id ?? ""} className="form-select text-sm">
+                    <option value="">— Select Company —</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 {editSource === "Supplier" && (
@@ -657,6 +665,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, renta
                   { label: "Color", value: vehicle.color ?? "—" },
                   { label: "Type", value: <StatusBadge status={vehicle.type?.toLowerCase() || "unknown"} /> },
                   { label: "Source", value: <StatusBadge status={vehicle.source?.toLowerCase() || "unknown"} /> },
+                  { label: "Company", value: vehicle.company?.name ?? "—" },
                   { label: "Supplier", value: vehicle.supplier?.name ?? "—" },
                   { label: "Fuel Type", value: vehicle.fuel_type ?? "—" },
                   { label: "Transmission", value: vehicle.transmission ?? "—" },

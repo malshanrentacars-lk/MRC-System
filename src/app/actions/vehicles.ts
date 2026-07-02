@@ -76,7 +76,7 @@ export async function getVehicleById(id: string): Promise<Vehicle | null> {
 
   const { data, error } = await supabaseAdmin
     .from('vehicles')
-    .select('*, supplier:suppliers(id, name, bank, account_number, branch), photos:vehicle_photos(*), rate_tiers(*)')
+    .select('*, supplier:suppliers(id, name, bank, account_number, branch), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
     .eq('id', id)
     .single();
 
@@ -85,7 +85,7 @@ export async function getVehicleById(id: string): Promise<Vehicle | null> {
     if (error.message.includes('schema cache')) {
       const { data: d2, error: e2 } = await supabaseAdmin
         .from('vehicles')
-        .select('*, supplier:suppliers(id, name, bank, account_number, branch), photos:vehicle_photos(*), rate_tiers(*)')
+        .select('*, supplier:suppliers(id, name, bank, account_number, branch), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
         .eq('id', id)
         .single();
       if (e2) return null;
@@ -108,6 +108,7 @@ function parseVehicleFields(formData: FormData) {
     transmission: formData.get('transmission') as string || null,
     source: formData.get('source') as string,
     supplier_id: formData.get('supplier_id') as string || null,
+    company_id: formData.get('company_id') as string || null,
     current_km: parseInt(formData.get('current_km') as string) || 0,
     next_service_km: parseInt(formData.get('next_service_km') as string) || 5000,
     next_service_date: formData.get('next_service_date') as string || null,
@@ -214,7 +215,7 @@ export async function createVehicle(formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
-        rental_start_date, renew_date, fuel_type, transmission,
+        rental_start_date, renew_date, fuel_type, transmission, company_id,
         ...dataWithoutDocs 
       } = vehicleData;
       const { data: d2, error: e2 } = await supabaseAdmin
@@ -329,7 +330,7 @@ export async function updateVehicle(id: string, formData: FormData) {
         eco_test_url, eco_test_path,
         insurance_url, insurance_path,
         service_tag_url, service_tag_path,
-        rental_start_date, renew_date, fuel_type, transmission,
+        rental_start_date, renew_date, fuel_type, transmission, company_id,
         ...dataWithoutDocs 
       } = updateData;
       const { error: e2 } = await supabaseAdmin.from('vehicles').update(dataWithoutDocs).eq('id', id);

@@ -1,5 +1,6 @@
 import { getVehicleById } from "@/app/actions/vehicles";
 import { getSuppliers } from "@/app/actions/suppliers";
+import { getCompanies } from "@/app/actions/companies";
 import { getRentals } from "@/app/actions/rentals";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -10,14 +11,14 @@ import VehicleDetailClient from "./VehicleDetailClient";
 
 export default async function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const p = await params;
-  const [vehicle, { data: suppliers }, { data: rentals }] = await Promise.all([
+  const [vehicle, { data: suppliers }, { data: companies }, { data: rentals }] = await Promise.all([
     getVehicleById(p.id),
     getSuppliers({ pageSize: 100 }),
+    getCompanies({ pageSize: 100 }),
     getRentals({ vehicleReg: "", pageSize: 100 }),
   ]);
   if (!vehicle) notFound();
 
-  // Filter rentals for this vehicle
   const vehicleRentals = (rentals ?? []).filter((r: any) => r.vehicle_id === p.id);
 
   return (
@@ -34,7 +35,7 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
         <StatusBadge status={vehicle.status} />
       </div>
 
-      <VehicleDetailClient vehicle={vehicle} suppliers={suppliers} rentals={vehicleRentals as any} />
+      <VehicleDetailClient vehicle={vehicle} suppliers={suppliers} companies={companies} rentals={vehicleRentals as any} />
     </div>
   );
 }

@@ -8,9 +8,8 @@ import { createSupplier } from "@/app/actions/suppliers";
 import { BANKS } from "@/lib/vehicleData";
 import FileUploader from "@/components/shared/FileUploader";
 import AddressFields from "@/components/shared/AddressFields";
-import type { Company } from "@/types";
 
-export default function NewSupplierClient({ companies }: { companies: Company[] }) {
+export default function NewSupplierClient() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -61,15 +60,6 @@ export default function NewSupplierClient({ companies }: { companies: Company[] 
           <div>
             <label className="form-label">NIC <span className="text-red-500">*</span></label>
             <input name="nic" required className="form-input uppercase" value={nicNumber} onChange={e => setNicNumber(e.target.value.toUpperCase())} />
-          </div>
-          <div>
-            <label className="form-label">Company</label>
-            <select name="company_id" className="form-select">
-              <option value="">— Select Company —</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
           </div>
           <AddressFields />
         </div>

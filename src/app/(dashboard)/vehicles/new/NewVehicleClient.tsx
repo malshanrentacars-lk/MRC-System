@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Pencil, Check } from "lucide-react";
 import { createVehicle } from "@/app/actions/vehicles";
-import { Supplier } from "@/types";
+import { Supplier, Company } from "@/types";
 import {
   BRANDS, COLORS, FUEL_TYPES, VEHICLE_TYPES, TRANSMISSION_TYPES, PAYMENT_TYPES, YEARS,
   getModels, calcTiersFromMonthly,
@@ -14,7 +14,7 @@ import FileUploader from "@/components/shared/FileUploader";
 
 type Tier = { label: string; days_from: number; days_to: number | null; rate_per_day: number };
 
-export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] }) {
+export default function NewVehicleClient({ suppliers, companies }: { suppliers: Supplier[]; companies: Company[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -229,6 +229,15 @@ export default function NewVehicleClient({ suppliers }: { suppliers: Supplier[] 
               <option value="">— Select Source —</option>
               <option value="Company">Company</option>
               <option value="Supplier">Supplier</option>
+            </select>
+          </div>
+
+          {/* Company */}
+          <div>
+            <label className="form-label">Company</label>
+            <select name="company_id" className="form-select">
+              <option value="">— Select Company —</option>
+              {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 

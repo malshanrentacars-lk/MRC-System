@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS company_settings (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS suppliers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   phone TEXT,
   phone2 TEXT,
@@ -80,6 +79,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   transmission TEXT,
   source TEXT DEFAULT 'Company' CHECK (source IN ('Company', 'Supplier')),
   supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+  company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'available' CHECK (status IN ('available', 'rented', 'booked', 'in_garage')),
   daily_rate NUMERIC(12,2) DEFAULT 0,
   current_km INTEGER DEFAULT 0,

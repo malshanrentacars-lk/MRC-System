@@ -39,7 +39,7 @@ function ImageCard({ label, url }: { label: string; url?: string | null }) {
   );
 }
 
-export default function SupplierDetailClient({ supplier, vehicles, companies }: { supplier: any; vehicles: any[]; companies: Company[] }) {
+export default function SupplierDetailClient({ supplier, vehicles }: { supplier: any; vehicles: any[] }) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
@@ -286,15 +286,6 @@ export default function SupplierDetailClient({ supplier, vehicles, companies }: 
               <input name={f.name} defaultValue={f.defaultValue ?? ""} className="form-input text-sm" />
             </div>
           ))}
-          <div>
-            <label className="form-label text-xs">Company</label>
-            <select name="company_id" defaultValue={supplier.company_id ?? supplier.company?.id ?? ""} className="form-select text-sm">
-              <option value="">— Select Company —</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
-          </div>
           <AddressFields defaultValues={supplier} />
           
           {/* Bank Details Section */}

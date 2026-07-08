@@ -1,12 +1,42 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, memo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, Search, Loader2, ChevronDown, Calendar } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Rental } from "@/types";
 import { formatCurrency, formatDate, isOverdue } from "@/lib/utils";
+import { useDebounce } from "@/lib/useDebounce";
+
+const RentalGridRow = memo(function RentalGridRow({ rental, onClick }: { rental: Rental; onClick: () => void }) {
+  const overdue = rental.status === "active" && isOverdue(rental.end_date);
+  return (
+    <tr onClick={onClick} className={`${overdue ? "bg-red-50/30" : ""} border-b border-gray-100 cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm`}>
+      <td onClick={e => e.stopPropagation()}>
+        <Link href={`/rentals/${rental.id}`} className="text-blue-500 hover:text-blue-700">
+          <Eye className="w-4 h-4" />
+        </Link>
+      </td>
+      <td><span className="font-semibold text-blue-600">{rental.rental_number}</span></td>
+      <td>
+        <p className="font-medium text-gray-900">{rental.customer?.name}</p>
+        <p className="text-xs text-gray-400">{rental.customer?.phone}</p>
+      </td>
+      <td>
+        <p className="font-medium">{rental.vehicle?.brand} {rental.vehicle?.model}</p>
+        <p className="text-xs text-gray-400">{rental.vehicle?.reg_number}</p>
+      </td>
+      <td className="text-sm">{formatDate(rental.start_date)}</td>
+      <td className="text-sm">{formatDate(rental.end_date)}</td>
+      <td>{rental.total_days}d</td>
+      <td>{formatCurrency(rental.daily_rate)}</td>
+      <td className="font-semibold text-right">{formatCurrency(rental.total_amount ?? 0)}</td>
+      <td>{formatCurrency(rental.deposit)}</td>
+      <td><StatusBadge status={overdue ? "overdue" : rental.status} /></td>
+    </tr>
+  );
+});
 
 interface RentalsClientProps {
   rentals: Rental[];
@@ -41,6 +71,8 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
 
+  const debouncedFilter = useDebounce(applyFilters, 300);
+
   const hasMore = currentPage * 10 < total;
 
   function goToPage(pageNum: number) {
@@ -72,7 +104,7 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
 
           <div className="relative">
             <select className="form-select w-full pr-8 bg-white" value={status}
-              onChange={(e) => { setStatus(e.target.value); applyFilters({ status: e.target.value }); }}>
+              onChange={(e) => { setStatus(e.target.value); debouncedFilter({ status: e.target.value }); }}>
               <option value="all">Status</option>
               {["active","booked","returned","overdue","cancelled"].map(s => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>
@@ -82,7 +114,7 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
           </div>
 
           <div className="relative">
-            <select className="form-select w-full pr-8 bg-white" value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); applyFilters({ paymentStatus: e.target.value }); }}>
+            <select className="form-select w-full pr-8 bg-white" value={paymentStatus} onChange={(e) => { setPaymentStatus(e.target.value); debouncedFilter({ paymentStatus: e.target.value }); }}>
               <option value="">Payment Status</option>
               <option value="paid">Paid</option>
               <option value="balance_due">Balance Due</option>
@@ -126,34 +158,9 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
             {rentals.length === 0 && (
               <tr><td colSpan={11} className="text-center py-12 text-gray-400">No rentals found</td></tr>
             )}
-            {rentals.map((r) => {
-              const overdue = r.status === "active" && isOverdue(r.end_date);
-              return (
-                <tr key={r.id} onClick={() => router.push(`/rentals/${r.id}`)} className={`${overdue ? "bg-red-50/30" : ""} border-b border-gray-100 cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm`}>
-                  <td onClick={e => e.stopPropagation()}>
-                    <Link href={`/rentals/${r.id}`} className="text-blue-500 hover:text-blue-700">
-                      <Eye className="w-4 h-4" />
-                    </Link>
-                  </td>
-                  <td><span className="font-semibold text-blue-600">{r.rental_number}</span></td>
-                  <td>
-                    <p className="font-medium text-gray-900">{r.customer?.name}</p>
-                    <p className="text-xs text-gray-400">{r.customer?.phone}</p>
-                  </td>
-                  <td>
-                    <p className="font-medium">{r.vehicle?.brand} {r.vehicle?.model}</p>
-                    <p className="text-xs text-gray-400">{r.vehicle?.reg_number}</p>
-                  </td>
-                  <td className="text-sm">{formatDate(r.start_date)}</td>
-                  <td className="text-sm">{formatDate(r.end_date)}</td>
-                  <td>{r.total_days}d</td>
-                  <td>{formatCurrency(r.daily_rate)}</td>
-                  <td className="font-semibold text-right">{formatCurrency(r.total_amount ?? 0)}</td>
-                  <td>{formatCurrency(r.deposit)}</td>
-                  <td><StatusBadge status={overdue ? "overdue" : r.status} /></td>
-                </tr>
-              );
-            })}
+            {rentals.map((r) => (
+              <RentalGridRow key={r.id} rental={r} onClick={() => router.push(`/rentals/${r.id}`)} />
+            ))}
           </tbody>
         </table>
       </div>

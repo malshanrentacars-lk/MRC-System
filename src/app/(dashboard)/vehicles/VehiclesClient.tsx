@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, memo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Eye, Search, Filter, ChevronDown, Loader2 } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -8,6 +8,30 @@ import ServiceAlertBadge from "@/components/shared/ServiceAlertBadge";
 import { Vehicle, Supplier } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import { getVehicles } from "@/app/actions/vehicles";
+import { useDebounce } from "@/lib/useDebounce";
+
+const VehicleGridRow = memo(function VehicleGridRow({ vehicle, onClick }: { vehicle: Vehicle; onClick: () => void }) {
+  return (
+    <tr onClick={onClick} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
+      <td><span className="font-semibold text-gray-900">{vehicle.reg_number}</span></td>
+      <td className="text-blue-600 font-medium">{vehicle.brand}</td>
+      <td>{vehicle.model}</td>
+      <td>{vehicle.year ?? "—"}</td>
+      <td><StatusBadge status={vehicle.type?.toLowerCase() || "unknown"} /></td>
+      <td><StatusBadge status={vehicle.source?.toLowerCase() || "unknown"} /></td>
+      <td className="font-medium">{formatCurrency(vehicle.daily_rate)}</td>
+      <td className="text-gray-500">{(vehicle.current_km || 0).toLocaleString()} km</td>
+      <td>
+        <ServiceAlertBadge
+          currentKm={vehicle.current_km || 0}
+          nextServiceKm={vehicle.next_service_km || 0}
+          nextServiceDate={vehicle.next_service_date}
+        />
+      </td>
+      <td><StatusBadge status={vehicle.status} /></td>
+    </tr>
+  );
+});
 
 interface VehiclesClientProps {
   vehicles: Vehicle[];
@@ -60,6 +84,8 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
 
+  const debouncedFilter = useDebounce(applyFilters, 300);
+
   const hasMore = clientPage * 10 < total;
   const shown = allVehicles.length;
 
@@ -78,17 +104,17 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
           />
         </div>
 
-        <select className="form-select w-auto" value={type} onChange={(e) => { setType(e.target.value); applyFilters({ type: e.target.value }); }}>
+        <select className="form-select w-auto" value={type} onChange={(e) => { setType(e.target.value); debouncedFilter({ type: e.target.value }); }}>
           <option value="all">All Types</option>
           {["Sedan","Hatchback","SUV","Van","Pickup","Bus","Other"].map(t => <option key={t}>{t}</option>)}
         </select>
 
-        <select className="form-select w-auto" value={status} onChange={(e) => { setStatus(e.target.value); applyFilters({ status: e.target.value }); }}>
+        <select className="form-select w-auto" value={status} onChange={(e) => { setStatus(e.target.value); debouncedFilter({ status: e.target.value }); }}>
           <option value="all">All Status</option>
           {["available","rented","booked","in_garage"].map(s => <option key={s} value={s}>{s.replace("_"," ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
         </select>
 
-        <select className="form-select w-auto" value={source} onChange={(e) => { setSource(e.target.value); applyFilters({ source: e.target.value }); }}>
+        <select className="form-select w-auto" value={source} onChange={(e) => { setSource(e.target.value); debouncedFilter({ source: e.target.value }); }}>
           <option value="all">All Owners</option>
           <option value="Company">Company</option>
           <option value="Supplier">Supplier</option>
@@ -119,24 +145,7 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
               <tr><td colSpan={10} className="text-center py-12 text-gray-400">No vehicles found</td></tr>
             )}
             {allVehicles.map((v) => (
-              <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
-                <td><span className="font-semibold text-gray-900">{v.reg_number}</span></td>
-                <td className="text-blue-600 font-medium">{v.brand}</td>
-                <td>{v.model}</td>
-                <td>{v.year ?? "—"}</td>
-                <td><StatusBadge status={v.type?.toLowerCase() || "unknown"} /></td>
-                <td><StatusBadge status={v.source?.toLowerCase() || "unknown"} /></td>
-                <td className="font-medium">{formatCurrency(v.daily_rate)}</td>
-                <td className="text-gray-500">{(v.current_km || 0).toLocaleString()} km</td>
-                <td>
-                  <ServiceAlertBadge
-                    currentKm={v.current_km || 0}
-                    nextServiceKm={v.next_service_km || 0}
-                    nextServiceDate={v.next_service_date}
-                  />
-                </td>
-                <td><StatusBadge status={v.status} /></td>
-              </tr>
+              <VehicleGridRow key={v.id} vehicle={v} onClick={() => router.push(`/vehicles/${v.id}`)} />
             ))}
           </tbody>
         </table>

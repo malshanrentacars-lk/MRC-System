@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback } from "react";
+import { useState, useTransition, memo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Search, Plus, Loader2, UserSearch } from "lucide-react";
@@ -8,6 +8,20 @@ import { Customer } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { formatAddress } from "@/lib/address";
 import { getCustomerByNic, getCustomers } from "@/app/actions/customers";
+
+const CustomerGridRow = memo(function CustomerGridRow({ customer, onClick }: { customer: Customer; onClick: () => void }) {
+  return (
+    <tr onClick={onClick} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
+      <td><p className="font-medium text-gray-900">{customer.name}</p></td>
+      <td className="text-gray-500">{customer.nic ?? "—"}</td>
+      <td>{customer.phone ?? "—"}</td>
+      <td className="text-gray-400">{customer.phone2 ?? "—"}</td>
+      <td className="text-gray-500">{customer.license_number ?? "—"}</td>
+      <td className="text-gray-500">{formatDate(customer.license_expiry)}</td>
+      <td className="text-gray-500 max-w-[150px] truncate">{formatAddress(customer)}</td>
+    </tr>
+  );
+});
 
 interface CustomersClientProps {
   customers: Customer[];
@@ -106,15 +120,7 @@ export default function CustomersClient({ customers: initialCustomers, total: in
           <tbody>
             {allCustomers.length === 0 && <tr><td colSpan={7} className="text-center py-12 text-gray-400">No customers found</td></tr>}
             {allCustomers.map((c) => (
-              <tr key={c.id} onClick={() => router.push(`/customers/${c.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
-                <td><p className="font-medium text-gray-900">{c.name}</p></td>
-                <td className="text-gray-500">{c.nic ?? "—"}</td>
-                <td>{c.phone ?? "—"}</td>
-                <td className="text-gray-400">{c.phone2 ?? "—"}</td>
-                <td className="text-gray-500">{c.license_number ?? "—"}</td>
-                <td className="text-gray-500">{formatDate(c.license_expiry)}</td>
-                <td className="text-gray-500 max-w-[150px] truncate">{formatAddress(c)}</td>
-              </tr>
+              <CustomerGridRow key={c.id} customer={c} onClick={() => router.push(`/customers/${c.id}`)} />
             ))}
           </tbody>
         </table>

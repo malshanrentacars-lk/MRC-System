@@ -1,11 +1,13 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { deleteOldStorageFile, uploadAsset } from '@/app/actions/upload';
 import { logActivity } from '@/app/actions/activity';
 import { Rental } from '@/types';
+import { DASHBOARD_TAG, VEHICLES_TAG, RENTALS_TAG } from '@/lib/cache-tags';
 
 const SIGNED_AGREEMENTS_BUCKET = 'signed-agreements';
 const SIGNED_AGREEMENT_NOTE_TAG = '[SIGNED_AGREEMENT]';
@@ -40,20 +42,6 @@ function toLegacyPaymentStatus(status: SettlementStatus, advancePaid: number) {
   if (status === 'paid' || status === 'refund_pending') return 'paid';
   return advancePaid > 0 ? 'partial' : 'pending';
 }
-
-async function getExistingRentalColumns(columnNames: string[]) {
-  const { data, error } = await supabaseAdmin
-    .from('information_schema.columns')
-    .select('column_name')
-    .eq('table_schema', 'public')
-    .eq('table_name', 'rentals')
-    .in('column_name', columnNames);
-
-  if (error) return new Set<string>();
-  return new Set((data ?? []).map((row) => row.column_name));
-}
-
-const RENTAL_PAYMENT_COLUMN = 'amount_paid';
 
 function extractSignedAgreementFromNotes(notes?: string | null): { url: string; path: string } | null {
   if (!notes) return null;
@@ -94,7 +82,7 @@ function removeSignedAgreementFromNotes(notes: string | null | undefined) {
   return cleaned || null;
 }
 
-export async function getRentals(params?: {
+async function _fetchRentals(params?: {
   search?: string;
   status?: string;
   vehicleReg?: string;
@@ -105,8 +93,6 @@ export async function getRentals(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  await requireAuth();
-
   let query = supabaseAdmin
     .from('rentals')
     .select(
@@ -140,9 +126,28 @@ export async function getRentals(params?: {
   return { data: (data ?? []) as Rental[], count: count ?? 0 };
 }
 
-export async function getRentalById(id: string): Promise<Rental | null> {
-  await requireAuth();
+const _cachedGetRentals = unstable_cache(
+  _fetchRentals,
+  ['rentals-list'],
+  { tags: [RENTALS_TAG], revalidate: false },
+);
 
+export async function getRentals(params?: {
+  search?: string;
+  status?: string;
+  vehicleReg?: string;
+  customerId?: string;
+  paymentStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  await requireAuth();
+  return _cachedGetRentals(params);
+}
+
+async function _fetchRentalById(id: string): Promise<Rental | null> {
   const baseQuery = `
       *,
       vehicle:vehicles(*, supplier:suppliers(id, name)),
@@ -169,6 +174,17 @@ export async function getRentalById(id: string): Promise<Rental | null> {
     }
   }
   return data as Rental;
+}
+
+const _cachedGetRentalById = unstable_cache(
+  _fetchRentalById,
+  ['rental-by-id'],
+  { tags: [RENTALS_TAG], revalidate: false },
+);
+
+export async function getRentalById(id: string): Promise<Rental | null> {
+  await requireAuth();
+  return _cachedGetRentalById(id);
 }
 
 export async function checkVehicleOverlap(
@@ -255,7 +271,7 @@ export async function createRental(data: {
     payment_status: paymentStatus,
     applied_rate: appliedRate,
     rental_duration: rentalDuration,
-    [RENTAL_PAYMENT_COLUMN]: advancePaid,
+    amount_paid: advancePaid,
     security_deposit_amount: securityDepositAmount,
     is_deposit_collected: isDepositCollected,
     km_limit: data.km_limit ?? 0,
@@ -282,7 +298,7 @@ export async function createRental(data: {
     rental_number: '',
     notes: data.notes ?? null,
     payment_status: legacyPaymentStatus,
-    [RENTAL_PAYMENT_COLUMN]: advancePaid,
+    amount_paid: advancePaid,
   };
 
   let { data: rental, error } = await supabaseAdmin
@@ -310,6 +326,9 @@ export async function createRental(data: {
 
   revalidatePath('/rentals');
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
   await logActivity({
     action: 'created',
     module: 'Rentals',
@@ -337,6 +356,9 @@ export async function activateRental(rentalId: string, pickupKm: number) {
 
   revalidatePath('/rentals');
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
   await logActivity({
     action: 'activated',
     module: 'Rentals',
@@ -470,6 +492,9 @@ export async function returnRental(rentalId: string, data: {
 
   revalidatePath('/rentals');
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
   await logActivity({
     action: 'returned',
     module: 'Rentals',
@@ -526,6 +551,9 @@ export async function exchangeVehicle(data: {
   const { data: r } = await supabaseAdmin.from('rentals').select('rental_number').eq('id', data.rental_id).single();
 
   revalidatePath('/rentals');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
   await logActivity({
     action: 'exchanged',
     module: 'Rentals',
@@ -547,6 +575,9 @@ export async function cancelRental(rentalId: string) {
 
   revalidatePath('/rentals');
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
   await logActivity({
     action: 'cancelled',
     module: 'Rentals',
@@ -562,7 +593,6 @@ export async function recordRentalPayment(rentalId: string, data: {
   notes?: string;
 }) {
   await requireAuth();
-  const columns = await getExistingRentalColumns(['amount_paid', 'payment_method', 'payment_notes', 'last_payment_date']);
 
   type PaymentRentalRecord = { id: string; rental_number: string; total_amount?: number | null; payment_status?: string; advance_paid?: number | null; amount_paid?: number | null };
   let rental: PaymentRentalRecord | null = null;
@@ -599,27 +629,20 @@ export async function recordRentalPayment(rentalId: string, data: {
   const payload = {
     amount_paid: nextPaid,
     payment_status: paymentStatus,
-    ...(columns.has('payment_method') ? { payment_method: data.method } : {}),
-    ...(columns.has('payment_notes') ? { payment_notes: data.notes ?? null } : {}),
-    ...(columns.has('last_payment_date') ? { last_payment_date: new Date().toISOString().slice(0, 10) } : {}),
+    payment_method: data.method,
+    payment_notes: data.notes ?? null,
+    last_payment_date: new Date().toISOString().slice(0, 10),
   };
 
   const { error: updateError } = await supabaseAdmin.from('rentals').update(payload).eq('id', rentalId);
-  if (updateError) {
-    if (updateError.message.includes('schema cache') || updateError.message.includes('column')) {
-      const { error: fallbackError } = await supabaseAdmin
-        .from('rentals')
-        .update(payload)
-        .eq('id', rentalId);
-      if (fallbackError) return { error: fallbackError.message };
-    } else {
-      return { error: updateError.message };
-    }
-  }
+  if (updateError) return { error: updateError.message };
 
   revalidatePath('/rentals');
   revalidatePath(`/rentals/${rentalId}`);
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
 
   await logActivity({
     action: 'updated',
@@ -654,19 +677,8 @@ export async function uploadSignedAgreement(rentalId: string, file: File) {
     signed_agreement_path?: string | null;
   };
 
-  let hasSignedAgreementColumns = true;
-  let rentalRecord = baseRental as AgreementRentalRecord | null;
-
-  if (baseError || !rentalRecord) {
-    hasSignedAgreementColumns = false;
-    const fallback = await supabaseAdmin
-      .from('rentals')
-      .select('id, rental_number, notes')
-      .eq('id', rentalId)
-      .single();
-    rentalRecord = fallback.data as AgreementRentalRecord | null;
-    if (fallback.error || !rentalRecord) return { error: 'Rental not found' };
-  }
+  const rentalRecord = baseRental as AgreementRentalRecord | null;
+  if (baseError || !rentalRecord) return { error: 'Rental not found' };
 
   const currentAgreement = extractSignedAgreementFromNotes(rentalRecord.notes);
   const oldAgreementUrl = rentalRecord.signed_agreement_url ?? currentAgreement?.url ?? null;
@@ -679,31 +691,16 @@ export async function uploadSignedAgreement(rentalId: string, file: File) {
   if (!uploadUrl || !uploadPath) return { error: 'Upload failed' };
 
   const nextNotes = upsertSignedAgreementInNotes(rentalRecord.notes, uploadUrl, uploadPath);
-  const payload = hasSignedAgreementColumns
-    ? {
-        signed_agreement_url: uploadUrl,
-        signed_agreement_path: uploadPath,
-        notes: nextNotes,
-      }
-    : {
-        notes: nextNotes,
-      };
+  const payload = {
+    signed_agreement_url: uploadUrl,
+    signed_agreement_path: uploadPath,
+    notes: nextNotes,
+  };
 
   const { error: updateError } = await supabaseAdmin.from('rentals').update(payload).eq('id', rentalId);
   if (updateError) {
-    if (hasSignedAgreementColumns && (updateError.message.includes('schema cache') || updateError.message.includes('column'))) {
-      const { error: fallbackUpdateError } = await supabaseAdmin
-        .from('rentals')
-        .update({ notes: nextNotes })
-        .eq('id', rentalId);
-      if (fallbackUpdateError) {
-        await deleteOldStorageFile(uploadUrl, null);
-        return { error: fallbackUpdateError.message };
-      }
-    } else {
-      await deleteOldStorageFile(uploadUrl, null);
-      return { error: updateError.message };
-    }
+    await deleteOldStorageFile(uploadUrl, null);
+    return { error: updateError.message };
   }
 
   await deleteOldStorageFile(oldAgreementUrl, uploadUrl);
@@ -713,6 +710,8 @@ export async function uploadSignedAgreement(rentalId: string, file: File) {
   revalidatePath('/agreements');
   revalidatePath(`/agreements/${rentalId}`);
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
 
   await logActivity({
     action: 'uploaded',
@@ -734,6 +733,9 @@ export async function restoreRentals(ids: string[]) {
 
   revalidatePath('/rentals');
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
+  revalidateTag(VEHICLES_TAG);
 
   for (const id of ids) {
     await logActivity({ action: 'updated', module: 'Rentals', entity_id: id, entity_label: id, details: 'Rental restored' });
@@ -760,6 +762,8 @@ export async function destroyRentals(ids: string[]) {
 
   revalidatePath('/rentals');
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
 
   for (const id of ids) {
     await logActivity({ action: 'deleted', module: 'Rentals', entity_id: id, entity_label: id });
@@ -785,19 +789,8 @@ export async function removeSignedAgreement(rentalId: string) {
     .eq('id', rentalId)
     .single();
 
-  let rental = baseQuery.data as AgreementRentalRecord | null;
-  let hasSignedAgreementColumns = true;
-
-  if (baseQuery.error || !rental) {
-    hasSignedAgreementColumns = false;
-    const fallback = await supabaseAdmin
-      .from('rentals')
-      .select('id, rental_number, notes')
-      .eq('id', rentalId)
-      .single();
-    rental = fallback.data as AgreementRentalRecord | null;
-    if (fallback.error || !rental) return { error: 'Rental not found' };
-  }
+  const rental = baseQuery.data as AgreementRentalRecord | null;
+  if (baseQuery.error || !rental) return { error: 'Rental not found' };
 
   const fromNotes = extractSignedAgreementFromNotes(rental.notes);
   const agreementUrl = rental.signed_agreement_url ?? fromNotes?.url ?? null;
@@ -812,28 +805,18 @@ export async function removeSignedAgreement(rentalId: string) {
   }
 
   const nextNotes = removeSignedAgreementFromNotes(rental.notes);
-  const payload = hasSignedAgreementColumns
-    ? { signed_agreement_url: null, signed_agreement_path: null, notes: nextNotes }
-    : { notes: nextNotes };
+  const payload = { signed_agreement_url: null, signed_agreement_path: null, notes: nextNotes };
 
   const { error: delError } = await supabaseAdmin.from('rentals').update(payload).eq('id', rentalId);
-  if (delError) {
-    if (hasSignedAgreementColumns && (delError.message.includes('schema cache') || delError.message.includes('column'))) {
-      const { error: fallbackDelError } = await supabaseAdmin
-        .from('rentals')
-        .update({ notes: nextNotes })
-        .eq('id', rentalId);
-      if (fallbackDelError) return { error: fallbackDelError.message };
-    } else {
-      return { error: delError.message };
-    }
-  }
+  if (delError) return { error: delError.message };
 
   revalidatePath('/rentals');
   revalidatePath(`/rentals/${rentalId}`);
   revalidatePath('/agreements');
   revalidatePath(`/agreements/${rentalId}`);
   revalidatePath('/dashboard');
+  revalidateTag(RENTALS_TAG);
+  revalidateTag(DASHBOARD_TAG);
 
   await logActivity({
     action: 'deleted',

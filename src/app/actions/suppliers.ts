@@ -122,18 +122,7 @@ export async function createSupplier(formData: FormData) {
   }
   const { data, error } = await supabaseAdmin.from('suppliers').insert(payload).select().single();
 
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      // Schema migration not yet run — retry without company/file columns
-      const { name, phone, phone2, email, address, nic, notes } = payload;
-      const { data: d2, error: e2 } = await supabaseAdmin.from('suppliers')
-        .insert({ name, phone, phone2, email, address, nic, notes }).select().single();
-      if (e2) return { error: e2.message };
-      revalidatePath('/suppliers');
-      return { data: d2 };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   // Move uploaded documents from temp 'suppliers/new/...' to '{nic}/...' structure
   const nic = payload.nic;
@@ -176,19 +165,7 @@ export async function updateSupplier(id: string, formData: FormData) {
   }
 
   const { error } = await supabaseAdmin.from('suppliers').update(payload).eq('id', id);
-
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      const { name, phone, phone2, email, address, nic, notes } = payload;
-      const { error: e2 } = await supabaseAdmin.from('suppliers')
-        .update({ name, phone, phone2, email, address, nic, notes }).eq('id', id);
-      if (e2) return { error: e2.message };
-      revalidatePath('/suppliers');
-      revalidatePath(`/suppliers/${id}`);
-      return { success: true };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   revalidatePath('/suppliers');
   revalidatePath(`/suppliers/${id}`);
@@ -263,17 +240,7 @@ export async function createGuarantor(formData: FormData) {
   const payload = buildGuarantorPayload(formData);
   const { data, error } = await supabaseAdmin.from('guarantors').insert(payload).select().single();
 
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      const { customer_id, name, nic, phone, phone2, address, relationship, notes } = payload;
-      const { data: d2, error: e2 } = await supabaseAdmin.from('guarantors')
-        .insert({ customer_id, name, nic, phone, phone2, address, relationship, notes }).select().single();
-      if (e2) return { error: e2.message };
-      revalidatePath('/guarantors');
-      return { data: d2 };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   revalidatePath('/guarantors');
   await logActivity({ action: 'created', module: 'Guarantors', entity_id: data.id, entity_label: data.name });
@@ -302,19 +269,7 @@ export async function updateGuarantor(id: string, formData: FormData) {
   }
 
   const { error } = await supabaseAdmin.from('guarantors').update(payload).eq('id', id);
-
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      const { customer_id, name, nic, phone, phone2, address, relationship, notes } = payload;
-      const { error: e2 } = await supabaseAdmin.from('guarantors')
-        .update({ customer_id, name, nic, phone, phone2, address, relationship, notes }).eq('id', id);
-      if (e2) return { error: e2.message };
-      revalidatePath('/guarantors');
-      revalidatePath(`/guarantors/${id}`);
-      return { success: true };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   revalidatePath('/guarantors');
   revalidatePath(`/guarantors/${id}`);

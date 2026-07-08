@@ -147,19 +147,10 @@ export async function updateCompanySettings(formData: FormData) {
 
   if (existing) {
     const { error } = await supabaseAdmin.from('company_settings').update(payload).eq('id', existing.id);
-    if (error && error.message.includes('column') && error.message.includes('schema cache')) {
-      const { company_name, address, phone, email, service_interval_km } = payload as any;
-      await supabaseAdmin.from('company_settings')
-        .update({ company_name, address, phone, email, service_interval_km })
-        .eq('id', existing.id);
-    }
+    if (error) console.warn('Failed to update company settings:', error.message);
   } else {
     const { error } = await supabaseAdmin.from('company_settings').insert(payload);
-    if (error && error.message.includes('column') && error.message.includes('schema cache')) {
-      const { company_name, address, phone, email, service_interval_km } = payload as any;
-      await supabaseAdmin.from('company_settings')
-        .insert({ company_name, address, phone, email, service_interval_km });
-    }
+    if (error) console.warn('Failed to create company settings:', error.message);
   }
 
   revalidatePath('/settings');

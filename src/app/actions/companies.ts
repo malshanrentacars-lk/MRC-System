@@ -27,20 +27,7 @@ export async function createCompany(formData: FormData) {
 
   const payload = buildCompanyPayload(formData);
   const { data, error } = await supabaseAdmin.from('companies').insert(payload).select().single();
-
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      // Migration not run yet — insert without file columns
-      const { name, phone, email, address, notes } = payload;
-      const { data: d2, error: e2 } = await supabaseAdmin.from('companies')
-        .insert({ name, phone, email, address, notes }).select().single();
-      if (e2) return { error: e2.message };
-      revalidatePath('/companies');
-      await logActivity({ action: 'created', module: 'Companies', entity_id: d2.id, entity_label: d2.name });
-      return { data: d2 };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   revalidatePath('/companies');
   await logActivity({ action: 'created', module: 'Companies', entity_id: data.id, entity_label: data.name });

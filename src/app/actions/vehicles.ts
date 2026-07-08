@@ -1,12 +1,14 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { deleteOldStorageFile, moveStorageFile } from '@/app/actions/upload';
 import { logActivity } from '@/app/actions/activity';
 import { buildDiff } from '@/lib/diff';
 import { Vehicle } from '@/types';
+import { DASHBOARD_TAG, VEHICLES_TAG } from '@/lib/cache-tags';
 
 const VEHICLE_FIELDS: Record<string, string> = {
   brand: 'Brand', model: 'Model', year: 'Year', color: 'Color',
@@ -15,7 +17,7 @@ const VEHICLE_FIELDS: Record<string, string> = {
   registration_document_url: 'Registration Document', bank: 'Bank', account_number: 'Account Number', branch: 'Branch',
 };
 
-export async function getVehicles(params?: {
+async function _fetchVehicles(params?: {
   search?: string;
   type?: string;
   status?: string;
@@ -23,11 +25,9 @@ export async function getVehicles(params?: {
   page?: number;
   pageSize?: number;
 }) {
-  await requireAuth();
-
   let query = supabaseAdmin
     .from('vehicles')
-    .select('*, supplier:suppliers(id, name, bank, account_number, branch), photos:vehicle_photos(*), rate_tiers(*)', { count: 'exact' })
+    .select('id, reg_number, brand, model, year, type, source, daily_rate, current_km, next_service_km, next_service_date, status, created_at', { count: 'exact' })
     .eq('is_active', true)
     .order('created_at', { ascending: false });
 
@@ -43,57 +43,49 @@ export async function getVehicles(params?: {
   query = query.range((page - 1) * pageSize, page * pageSize - 1);
 
   const { data, error, count } = await query;
-  
-  if (error) {
-    // If schema cache issue, retry without new supplier columns
-    if (error.message.includes('schema cache')) {
-      let retryQuery = supabaseAdmin
-        .from('vehicles')
-        .select('*, supplier:suppliers(id, name), photos:vehicle_photos(*), rate_tiers(*)', { count: 'exact' })
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (params?.search) {
-        retryQuery = retryQuery.or(`reg_number.ilike.%${params.search}%,brand.ilike.%${params.search}%,model.ilike.%${params.search}%`);
-      }
-      if (params?.type && params.type !== 'all') retryQuery = retryQuery.eq('type', params.type);
-      if (params?.status && params.status !== 'all') retryQuery = retryQuery.eq('status', params.status);
-      if (params?.source && params.source !== 'all') retryQuery = retryQuery.eq('source', params.source);
-
-      retryQuery = retryQuery.range((page - 1) * pageSize, page * pageSize - 1);
-      const { data: d2, count: c2, error: e2 } = await retryQuery;
-      if (e2) throw new Error(e2.message);
-      return { data: d2 as Vehicle[], count: c2 ?? 0 };
-    }
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   return { data: data as Vehicle[], count: count ?? 0 };
 }
 
-export async function getVehicleById(id: string): Promise<Vehicle | null> {
-  await requireAuth();
+const _cachedGetVehicles = unstable_cache(
+  _fetchVehicles,
+  ['vehicles-list'],
+  { tags: [VEHICLES_TAG], revalidate: false },
+);
 
+export async function getVehicles(params?: {
+  search?: string;
+  type?: string;
+  status?: string;
+  source?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  await requireAuth();
+  return _cachedGetVehicles(params);
+}
+
+async function _fetchVehicleById(id: string): Promise<Vehicle | null> {
   const { data, error } = await supabaseAdmin
     .from('vehicles')
     .select('*, supplier:suppliers(id, name, bank, account_number, branch), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
     .eq('id', id)
     .single();
 
-  if (error) {
-    // If schema cache issue, retry without new columns
-    if (error.message.includes('schema cache')) {
-      const { data: d2, error: e2 } = await supabaseAdmin
-        .from('vehicles')
-        .select('*, supplier:suppliers(id, name, bank, account_number, branch), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
-        .eq('id', id)
-        .single();
-      if (e2) return null;
-      return d2 as Vehicle;
-    }
-    return null;
-  }
+  if (error) return null;
   return data as Vehicle;
+}
+
+const _cachedGetVehicleById = unstable_cache(
+  _fetchVehicleById,
+  ['vehicle-by-id'],
+  { tags: [VEHICLES_TAG], revalidate: false },
+);
+
+export async function getVehicleById(id: string): Promise<Vehicle | null> {
+  await requireAuth();
+  return _cachedGetVehicleById(id);
 }
 
 function parseVehicleFields(formData: FormData) {
@@ -207,52 +199,7 @@ export async function createVehicle(formData: FormData) {
     .select()
     .single();
 
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      // Schema migration not yet run — retry without document columns
-      const { 
-        registration_document_url, registration_document_path, 
-        revenue_license_url, revenue_license_path,
-        eco_test_url, eco_test_path,
-        insurance_url, insurance_path,
-        service_tag_url, service_tag_path,
-        agreement_start_date, agreement_period, renew_date, fuel_type, transmission, company_id,
-        ...dataWithoutDocs 
-      } = vehicleData;
-      const { data: d2, error: e2 } = await supabaseAdmin
-        .from('vehicles')
-        .insert(dataWithoutDocs)
-        .select()
-        .single();
-      if (e2) return { error: e2.message };
-      // Continue with rate tiers and photos using d2
-      if (tiers.length > 0) {
-        await supabaseAdmin.from('rate_tiers').insert(
-          tiers.map((t: { days_from: number; days_to?: number | null; rate_per_day: number; label?: string }) => ({
-            vehicle_id: d2.id,
-            days_from: t.days_from,
-            days_to: t.days_to ?? null,
-            rate_per_day: t.rate_per_day,
-          }))
-        );
-      }
-      const photoUrls = formData.getAll('vehicle_photos_url') as string[];
-      const photoPaths = formData.getAll('vehicle_photos_path') as string[];
-      if (photoUrls.length > 0 && photoUrls.length === photoPaths.length) {
-        const photoInserts = photoUrls.map((url, i) => ({
-          vehicle_id: d2.id,
-          url,
-          storage_path: photoPaths[i],
-          is_primary: i === 0,
-        }));
-        await supabaseAdmin.from('vehicle_photos').insert(photoInserts);
-      }
-      revalidatePath('/vehicles');
-      await logActivity({ action: 'created', module: 'Vehicles', entity_id: d2.id, entity_label: `${d2.brand} ${d2.model} (${d2.reg_number})` });
-      return { data: d2 };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   // Insert rate tiers
   if (tiers.length > 0) {
@@ -286,6 +233,8 @@ export async function createVehicle(formData: FormData) {
   }
 
   revalidatePath('/vehicles');
+  revalidateTag(VEHICLES_TAG);
+  revalidateTag(DASHBOARD_TAG);
   await logActivity({ action: 'created', module: 'Vehicles', entity_id: data.id, entity_label: `${data.brand} ${data.model} (${data.reg_number})` });
   return { data };
 }
@@ -321,44 +270,7 @@ export async function updateVehicle(id: string, formData: FormData) {
   const { reg_number, ...updateData } = vehicleData;
 
   const { error } = await supabaseAdmin.from('vehicles').update(updateData).eq('id', id);
-  
-  if (error) {
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      // Schema migration not yet run — retry without document columns
-      const { 
-        registration_document_url, registration_document_path, 
-        revenue_license_url, revenue_license_path,
-        eco_test_url, eco_test_path,
-        insurance_url, insurance_path,
-        service_tag_url, service_tag_path,
-        agreement_start_date, agreement_period, renew_date, fuel_type, transmission, company_id,
-        ...dataWithoutDocs 
-      } = updateData;
-      const { error: e2 } = await supabaseAdmin.from('vehicles').update(dataWithoutDocs).eq('id', id);
-      if (e2) return { error: e2.message };
-      // Continue with rate tiers update
-      if (tiers !== null) {
-        await supabaseAdmin.from('rate_tiers').delete().eq('vehicle_id', id);
-        if (tiers.length > 0) {
-          await supabaseAdmin.from('rate_tiers').insert(
-            tiers.map((t: { days_from: number; days_to?: number | null; rate_per_day: number }) => ({
-              vehicle_id: id,
-              days_from: t.days_from,
-              days_to: t.days_to ?? null,
-              rate_per_day: t.rate_per_day,
-            }))
-          );
-        }
-      }
-      revalidatePath('/vehicles');
-      revalidatePath(`/vehicles/${id}`);
-      const label = current ? `${current.brand} ${current.model} (${current.reg_number})` : id;
-      const diff = current ? buildDiff(current as Record<string, unknown>, dataWithoutDocs as Record<string, unknown>, VEHICLE_FIELDS) : { details: '', old_value: '', new_value: '' };
-      await logActivity({ action: 'updated', module: 'Vehicles', entity_id: id, entity_label: label, ...diff });
-      return { success: true };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   // Update rate tiers
   if (tiers !== null) {
@@ -377,6 +289,8 @@ export async function updateVehicle(id: string, formData: FormData) {
 
   revalidatePath('/vehicles');
   revalidatePath(`/vehicles/${id}`);
+  revalidateTag(VEHICLES_TAG);
+  revalidateTag(DASHBOARD_TAG);
   const label = current ? `${current.brand} ${current.model} (${current.reg_number})` : id;
   const diff = current ? buildDiff(current as Record<string, unknown>, updateData as Record<string, unknown>, VEHICLE_FIELDS) : { details: '', old_value: '', new_value: '' };
   await logActivity({ action: 'updated', module: 'Vehicles', entity_id: id, entity_label: label, ...diff });
@@ -459,6 +373,8 @@ export async function deleteVehicle(id: string) {
   }
 
   revalidatePath('/vehicles');
+  revalidateTag(VEHICLES_TAG);
+  revalidateTag(DASHBOARD_TAG);
   await logActivity({ action: 'deleted', module: 'Vehicles', entity_id: id, entity_label: label });
   return { success: true };
 }
@@ -468,6 +384,8 @@ export async function updateVehicleStatus(id: string, status: Vehicle['status'])
   const { error } = await supabaseAdmin.from('vehicles').update({ status }).eq('id', id);
   if (error) return { error: error.message };
   revalidatePath('/vehicles');
+  revalidateTag(VEHICLES_TAG);
+  revalidateTag(DASHBOARD_TAG);
   const { data: v } = await supabaseAdmin.from('vehicles').select('brand, model, reg_number').eq('id', id).single();
   await logActivity({ action: 'status_changed', module: 'Vehicles', entity_id: id, entity_label: v ? `${v.brand} ${v.model} (${v.reg_number})` : id, details: `Status → ${status}` });
   return { success: true };
@@ -501,6 +419,7 @@ export async function uploadVehiclePhoto(vehicleId: string, file: File, isPrimar
   if (error) return { error: error.message };
 
   revalidatePath(`/vehicles/${vehicleId}`);
+  revalidateTag(VEHICLES_TAG);
   return { success: true, url: urlData.publicUrl, path, id: inserted.id };
 }
 
@@ -509,5 +428,6 @@ export async function deleteVehiclePhoto(photoId: string, storagePath: string, v
   await supabaseAdmin.storage.from('vehicle-documents').remove([storagePath]);
   await supabaseAdmin.from('vehicle_photos').delete().eq('id', photoId);
   revalidatePath(`/vehicles/${vehicleId}`);
+  revalidateTag(VEHICLES_TAG);
   return { success: true };
 }

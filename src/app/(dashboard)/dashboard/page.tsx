@@ -6,8 +6,10 @@ import {
   Plus, CheckCircle2, Circle, ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import StatusBadge from "@/components/shared/StatusBadge";
-import CalendarWidget from "@/components/dashboard/CalendarWidget";
+
+const CalendarWidget = dynamic(() => import("@/components/dashboard/CalendarWidget"), { ssr: true });
 
 export default async function DashboardPage() {
   const [session, stats, topVehicles, topCustomers, upcoming, calendarData] = await Promise.all([

@@ -1,12 +1,14 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { deleteOldStorageFile } from '@/app/actions/upload';
 import { logActivity } from '@/app/actions/activity';
 import { buildDiff } from '@/lib/diff';
 import { readAddressForm } from '@/lib/address';
+import { DASHBOARD_TAG, CUSTOMERS_TAG } from '@/lib/cache-tags';
 
 const CUSTOMER_FIELDS: Record<string, string> = {
   name: 'Full Name',
@@ -23,9 +25,7 @@ const CUSTOMER_FIELDS: Record<string, string> = {
   notes: 'Notes',
 };
 
-export async function getCustomers(params?: { search?: string; page?: number; pageSize?: number }) {
-  await requireAuth();
-
+async function _fetchCustomers(params?: { search?: string; page?: number; pageSize?: number }) {
   let query = supabaseAdmin
     .from('customers')
     .select('*', { count: 'exact' })
@@ -46,8 +46,18 @@ export async function getCustomers(params?: { search?: string; page?: number; pa
   return { data: data ?? [], count: count ?? 0 };
 }
 
-export async function getCustomerById(id: string) {
+const _cachedGetCustomers = unstable_cache(
+  _fetchCustomers,
+  ['customers-list'],
+  { tags: [CUSTOMERS_TAG], revalidate: false },
+);
+
+export async function getCustomers(params?: { search?: string; page?: number; pageSize?: number }) {
   await requireAuth();
+  return _cachedGetCustomers(params);
+}
+
+async function _fetchCustomerById(id: string) {
   const { data, error } = await supabaseAdmin
     .from('customers')
     .select('*, guarantors(*)')
@@ -55,6 +65,17 @@ export async function getCustomerById(id: string) {
     .single();
   if (error) return null;
   return data;
+}
+
+const _cachedGetCustomerById = unstable_cache(
+  _fetchCustomerById,
+  ['customer-by-id'],
+  { tags: [CUSTOMERS_TAG], revalidate: false },
+);
+
+export async function getCustomerById(id: string) {
+  await requireAuth();
+  return _cachedGetCustomerById(id);
 }
 
 export async function createCustomer(formData: FormData) {
@@ -89,22 +110,11 @@ export async function createCustomer(formData: FormData) {
   };
 
   const { data, error } = await supabaseAdmin.from('customers').insert(payload).select().single();
-
-  if (error) {
-    // If error is about missing column, retry without file columns
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      const { name, nic, phone, phone2, email, address, license_number, license_expiry, notes } = payload as any;
-      const { data: d2, error: e2 } = await supabaseAdmin.from('customers').insert({
-        name, nic, phone, phone2, email, address, license_number, license_expiry, notes
-      }).select().single();
-      if (e2) return { error: e2.message };
-      revalidatePath('/customers');
-      return { data: d2 };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   revalidatePath('/customers');
+  revalidateTag(CUSTOMERS_TAG);
+  revalidateTag(DASHBOARD_TAG);
   await logActivity({ action: 'created', module: 'Customers', entity_id: data.id, entity_label: data.name });
   return { data };
 }
@@ -159,24 +169,12 @@ export async function updateCustomer(id: string, formData: FormData) {
   };
 
   const { error } = await supabaseAdmin.from('customers').update(payload).eq('id', id);
-
-  if (error) {
-    // Retry without file columns if schema cache error
-    if (error.message.includes('column') && error.message.includes('schema cache')) {
-      const { name, nic, phone, phone2, email, address, license_number, license_expiry, notes } = payload as any;
-      const { error: e2 } = await supabaseAdmin.from('customers').update({
-        name, nic, phone, phone2, email, address, license_number, license_expiry, notes
-      }).eq('id', id);
-      if (e2) return { error: e2.message };
-      revalidatePath('/customers');
-      revalidatePath(`/customers/${id}`);
-      return { success: true };
-    }
-    return { error: error.message };
-  }
+  if (error) return { error: error.message };
 
   revalidatePath('/customers');
   revalidatePath(`/customers/${id}`);
+  revalidateTag(CUSTOMERS_TAG);
+  revalidateTag(DASHBOARD_TAG);
   const diff = current ? buildDiff(current as Record<string, unknown>, payload, CUSTOMER_FIELDS, ['address']) : { details: '', old_value: '', new_value: '' };
   await logActivity({ action: 'updated', module: 'Customers', entity_id: id, entity_label: payload.name as string, ...diff });
   return { success: true };
@@ -188,6 +186,8 @@ export async function deleteCustomer(id: string) {
   await supabaseAdmin.from('customers').update({ is_active: false }).eq('id', id);
   await logActivity({ action: 'deleted', module: 'Customers', entity_id: id, entity_label: c?.name ?? id });
   revalidatePath('/customers');
+  revalidateTag(CUSTOMERS_TAG);
+  revalidateTag(DASHBOARD_TAG);
   return { success: true };
 }
 

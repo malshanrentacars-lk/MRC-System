@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, memo } from "react";
+import { useState, useTransition, memo, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Eye, Search, Filter, ChevronDown, Loader2 } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -33,6 +33,33 @@ const VehicleGridRow = memo(function VehicleGridRow({ vehicle, onClick }: { vehi
   );
 });
 
+const VehicleMobileCard = memo(function VehicleMobileCard({ vehicle, onClick }: { vehicle: Vehicle; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <p className="font-semibold text-gray-900">{vehicle.reg_number}</p>
+          <p className="text-sm text-blue-600">{vehicle.brand} {vehicle.model} {vehicle.year ? `· ${vehicle.year}` : ""}</p>
+        </div>
+        <StatusBadge status={vehicle.status} />
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+        <span>{formatCurrency(vehicle.daily_rate)}/day</span>
+        <span>{(vehicle.current_km || 0).toLocaleString()} km</span>
+        <StatusBadge status={vehicle.type?.toLowerCase() || "unknown"} />
+        <StatusBadge status={vehicle.source?.toLowerCase() || "unknown"} />
+      </div>
+      <div className="mt-2">
+        <ServiceAlertBadge
+          currentKm={vehicle.current_km || 0}
+          nextServiceKm={vehicle.next_service_km || 0}
+          nextServiceDate={vehicle.next_service_date}
+        />
+      </div>
+    </div>
+  );
+});
+
 interface VehiclesClientProps {
   vehicles: Vehicle[];
   suppliers: Supplier[];
@@ -53,6 +80,12 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
   const [clientPage, setClientPage] = useState(initialPage);
   const [total, setTotal] = useState(initialTotal);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    setAllVehicles(initialVehicles);
+    setTotal(initialTotal);
+    setClientPage(initialPage);
+  }, [initialVehicles, initialTotal, initialPage]);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -99,8 +132,7 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
             className="form-input pl-9"
             placeholder="Search reg, brand, model..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            onChange={(e) => { setSearch(e.target.value); debouncedFilter({ search: e.target.value }); }}
           />
         </div>
 
@@ -123,8 +155,8 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
         {isPending && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -149,6 +181,16 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3 p-4">
+        {allVehicles.length === 0 && (
+          <p className="text-center py-12 text-gray-400">No vehicles found</p>
+        )}
+        {allVehicles.map((v) => (
+          <VehicleMobileCard key={v.id} vehicle={v} onClick={() => router.push(`/vehicles/${v.id}`)} />
+        ))}
       </div>
 
       {/* Pagination */}

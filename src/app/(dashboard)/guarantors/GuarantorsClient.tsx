@@ -1,12 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, memo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Search, Plus, Eye, Loader2 } from "lucide-react";
 import { Guarantor } from "@/types";
 import { formatAddress } from "@/lib/address";
 import { getGuarantors } from "@/app/actions/suppliers";
+import { useDebounce } from "@/lib/useDebounce";
+
+const GuarantorMobileCard = memo(function GuarantorMobileCard({ guarantor, onClick }: { guarantor: Guarantor; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
+      <p className="font-semibold text-gray-900">{guarantor.name}</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+        <span>{guarantor.phone ?? "—"}</span>
+        {guarantor.relationship && <span>{guarantor.relationship}</span>}
+        <span>NIC: {guarantor.nic ?? "—"}</span>
+      </div>
+      <p className="text-xs text-gray-400 mt-2 truncate">{formatAddress(guarantor)}</p>
+    </div>
+  );
+});
 
 export default function GuarantorsClient({
   guarantors: initialGuarantors,
@@ -26,6 +41,12 @@ export default function GuarantorsClient({
   const [total, setTotal] = useState(initialTotal);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  useEffect(() => {
+    setAllGuarantors(initialGuarantors);
+    setTotal(initialTotal);
+    setClientPage(initialPage);
+  }, [initialGuarantors, initialTotal, initialPage]);
+
   async function loadMore() {
     setLoadingMore(true);
     const nextPage = clientPage + 1;
@@ -38,11 +59,14 @@ export default function GuarantorsClient({
     setLoadingMore(false);
   }
 
-  function applySearch() {
+  function applySearch(override?: string) {
     const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    const s = override ?? search;
+    if (s) params.set("search", s);
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
+
+  const debouncedSearch = useDebounce(applySearch, 300);
 
   return (
     <div className="section-card">
@@ -53,8 +77,7 @@ export default function GuarantorsClient({
             className="form-input pl-9"
             placeholder="Search name, NIC, phone..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && applySearch()}
+            onChange={(e) => { setSearch(e.target.value); debouncedSearch(e.target.value); }}
           />
         </div>
         {isPending && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
@@ -63,8 +86,8 @@ export default function GuarantorsClient({
         </Link>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="data-table">
           <thead><tr><th>Name</th><th>NIC</th><th>Phone</th><th>Address</th><th>Linked To</th></tr></thead>
           <tbody>
@@ -86,6 +109,16 @@ export default function GuarantorsClient({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3 p-4">
+        {allGuarantors.length === 0 && (
+          <p className="text-center py-12 text-gray-400">No guarantors found</p>
+        )}
+        {allGuarantors.map(g => (
+          <GuarantorMobileCard key={g.id} guarantor={g} onClick={() => router.push(`/guarantors/${g.id}`)} />
+        ))}
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">

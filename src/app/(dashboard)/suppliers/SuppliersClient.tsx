@@ -1,12 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, memo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Search, Plus, Loader2, Car } from "lucide-react";
 import { Supplier } from "@/types";
 import { formatAddress } from "@/lib/address";
 import { getSuppliers } from "@/app/actions/suppliers";
+import { useDebounce } from "@/lib/useDebounce";
+
+const SupplierMobileCard = memo(function SupplierMobileCard({ supplier, onClick }: { supplier: Supplier; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
+      <p className="font-semibold text-gray-900">{supplier.name}</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+        <span>{supplier.phone ?? "—"}</span>
+        <span>{supplier.email ?? "—"}</span>
+        <span>NIC: {supplier.nic ?? "—"}</span>
+      </div>
+      <p className="text-xs text-gray-400 mt-2 truncate">{formatAddress(supplier)}</p>
+      <Link href={`/vehicles?supplier=${supplier.id}`} onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 text-blue-500 text-xs hover:underline mt-2">
+        <Car className="w-3 h-3" /> Vehicles
+      </Link>
+    </div>
+  );
+});
 
 export default function SuppliersClient({
   suppliers: initialSuppliers,
@@ -26,6 +44,12 @@ export default function SuppliersClient({
   const [total, setTotal] = useState(initialTotal);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  useEffect(() => {
+    setAllSuppliers(initialSuppliers);
+    setTotal(initialTotal);
+    setClientPage(initialPage);
+  }, [initialSuppliers, initialTotal, initialPage]);
+
   async function loadMore() {
     setLoadingMore(true);
     const nextPage = clientPage + 1;
@@ -38,11 +62,14 @@ export default function SuppliersClient({
     setLoadingMore(false);
   }
 
-  function applySearch() {
+  function applySearch(override?: string) {
     const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    const s = override ?? search;
+    if (s) params.set("search", s);
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
+
+  const debouncedSearch = useDebounce(applySearch, 300);
 
   return (
     <div className="section-card">
@@ -53,8 +80,7 @@ export default function SuppliersClient({
             className="form-input pl-9"
             placeholder="Search..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && applySearch()}
+            onChange={(e) => { setSearch(e.target.value); debouncedSearch(e.target.value); }}
           />
         </div>
         {isPending && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
@@ -64,7 +90,8 @@ export default function SuppliersClient({
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr><th>Name</th><th>Phone</th><th>Email</th><th>NIC</th><th>Address</th><th>Vehicles</th></tr>
@@ -89,6 +116,16 @@ export default function SuppliersClient({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3 p-4">
+        {allSuppliers.length === 0 && (
+          <p className="text-center py-12 text-gray-400">No suppliers found</p>
+        )}
+        {allSuppliers.map(s => (
+          <SupplierMobileCard key={s.id} supplier={s} onClick={() => router.push(`/suppliers/${s.id}`)} />
+        ))}
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">

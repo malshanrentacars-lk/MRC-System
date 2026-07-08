@@ -1,12 +1,26 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, memo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Search, Plus, Loader2 } from "lucide-react";
 import { Company } from "@/types";
 import { formatAddress } from "@/lib/address";
 import { getCompanies } from "@/app/actions/companies";
+import { useDebounce } from "@/lib/useDebounce";
+
+const CompanyMobileCard = memo(function CompanyMobileCard({ company, onClick }: { company: Company; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
+      <p className="font-semibold text-gray-900">{company.name}</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+        <span>{company.phone ?? "—"}</span>
+        <span>{company.email ?? "—"}</span>
+      </div>
+      <p className="text-xs text-gray-400 mt-2 truncate">{formatAddress(company)}</p>
+    </div>
+  );
+});
 
 export default function CompaniesClient({
   companies: initialCompanies,
@@ -26,6 +40,12 @@ export default function CompaniesClient({
   const [total, setTotal] = useState(initialTotal);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  useEffect(() => {
+    setAllCompanies(initialCompanies);
+    setTotal(initialTotal);
+    setClientPage(initialPage);
+  }, [initialCompanies, initialTotal, initialPage]);
+
   async function loadMore() {
     setLoadingMore(true);
     const nextPage = clientPage + 1;
@@ -38,11 +58,14 @@ export default function CompaniesClient({
     setLoadingMore(false);
   }
 
-  function applySearch() {
+  function applySearch(override?: string) {
     const params = new URLSearchParams();
-    if (search) params.set("search", search);
+    const s = override ?? search;
+    if (s) params.set("search", s);
     startTransition(() => router.push(`${pathname}?${params.toString()}`));
   }
+
+  const debouncedSearch = useDebounce(applySearch, 300);
 
   return (
     <div className="section-card">
@@ -53,8 +76,7 @@ export default function CompaniesClient({
             className="form-input pl-9"
             placeholder="Search..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && applySearch()}
+            onChange={(e) => { setSearch(e.target.value); debouncedSearch(e.target.value); }}
           />
         </div>
         {isPending && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
@@ -63,8 +85,8 @@ export default function CompaniesClient({
         </Link>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr><th>Logo</th><th>Name</th><th>Phone</th><th>Email</th><th>Address</th></tr>
@@ -90,6 +112,16 @@ export default function CompaniesClient({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3 p-4">
+        {allCompanies.length === 0 && (
+          <p className="text-center py-12 text-gray-400">No companies found</p>
+        )}
+        {allCompanies.map(c => (
+          <CompanyMobileCard key={c.id} company={c} onClick={() => router.push(`/companies/${c.id}`)} />
+        ))}
       </div>
 
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">

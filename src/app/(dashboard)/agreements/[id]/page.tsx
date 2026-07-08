@@ -22,7 +22,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       <div className="border-b-2 border-gray-900 pb-6 mb-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{settings?.company_name ?? "CarZone"}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{settings?.company_name ?? "MRC"}</h1>
             <p className="text-sm text-gray-600 mt-1">{formatAddress(settings)}</p>
             {settings?.phone && <p className="text-sm text-gray-600">{settings.phone}</p>}
           </div>
@@ -147,7 +147,7 @@ export default async function AgreementPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="mt-8 text-center text-xs text-gray-400 border-t border-gray-100 pt-4">
-        This is a system-generated document. {settings?.company_name ?? "CarZone"} — All rights reserved.
+        This is a system-generated document. {settings?.company_name ?? "MRC"} — All rights reserved.
       </div>
 
       {/* Print button — client component */}

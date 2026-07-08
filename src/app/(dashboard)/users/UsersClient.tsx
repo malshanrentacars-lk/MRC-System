@@ -1,12 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Users, Activity } from "lucide-react";
 import { createUser, updateUser } from "@/app/actions/users";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ActivityLogTab from "./ActivityLogTab";
 import { User } from "@/types";
+
+const UserMobileCard = memo(function UserMobileCard({ user, onClick }: { user: User; onClick: () => void }) {
+  return (
+    <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <p className="font-semibold text-gray-900">{user.full_name}</p>
+          <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{user.username}</code>
+        </div>
+        <StatusBadge status={user.role} />
+      </div>
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <span>{user.email ?? "—"}</span>
+        <StatusBadge status={user.is_active ? "available" : "cancelled"} />
+      </div>
+    </div>
+  );
+});
 
 export default function UsersClient({
   users: initialUsers,
@@ -101,7 +119,8 @@ export default function UsersClient({
             </div>
           )}
 
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="data-table">
               <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
               <tbody>
@@ -116,6 +135,13 @@ export default function UsersClient({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {users.map(u => (
+              <UserMobileCard key={u.id} user={u} onClick={() => router.push(`/users/${u.id}`)} />
+            ))}
           </div>
         </>
       )}

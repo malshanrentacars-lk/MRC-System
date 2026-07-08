@@ -38,6 +38,31 @@ const RentalGridRow = memo(function RentalGridRow({ rental, onClick }: { rental:
   );
 });
 
+const RentalMobileCard = memo(function RentalMobileCard({ rental, onClick }: { rental: Rental; onClick: () => void }) {
+  const overdue = rental.status === "active" && isOverdue(rental.end_date);
+  return (
+    <div onClick={onClick} className={`section-card p-4 cursor-pointer active:scale-[0.98] transition-all ${overdue ? "bg-red-50/30" : ""}`}>
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <p className="font-semibold text-blue-600">{rental.rental_number}</p>
+          <p className="text-sm font-medium">{rental.customer?.name}</p>
+          <p className="text-xs text-gray-400">{rental.vehicle?.reg_number} — {rental.vehicle?.brand} {rental.vehicle?.model}</p>
+        </div>
+        <StatusBadge status={overdue ? "overdue" : rental.status} />
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-500 border-t border-gray-100 pt-2">
+        <span>{formatDate(rental.start_date)} → {formatDate(rental.end_date)}</span>
+        <span className="font-medium">{rental.total_days}d</span>
+        <span>{formatCurrency(rental.daily_rate)}/day</span>
+      </div>
+      <div className="flex items-center justify-between mt-2 text-sm">
+        <span className="text-gray-500">Deposit: {formatCurrency(rental.deposit)}</span>
+        <span className="font-semibold">{formatCurrency(rental.total_amount ?? 0)}</span>
+      </div>
+    </div>
+  );
+});
+
 interface RentalsClientProps {
   rentals: Rental[];
   total: number;
@@ -89,17 +114,17 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input className="form-input pl-9 bg-slate-50 border border-gray-200 placeholder-gray-400" placeholder="Rental Number" value={search}
-              onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && applyFilters()} />
+              onChange={(e) => { setSearch(e.target.value); debouncedFilter({ search: e.target.value }); }} />
           </div>
 
           <div>
             <input className="form-input bg-slate-50 border border-gray-200 placeholder-gray-400" placeholder="Customer ID" value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && applyFilters()} />
+              onChange={(e) => { setCustomerId(e.target.value); debouncedFilter({ customerId: e.target.value }); }} />
           </div>
 
           <div>
             <input className="form-input bg-slate-50 border border-gray-200 placeholder-gray-400" placeholder="Vehicle Reg Number" value={vehicleReg}
-              onChange={(e) => setVehicleReg(e.target.value)} onKeyDown={(e) => e.key === "Enter" && applyFilters()} />
+              onChange={(e) => { setVehicleReg(e.target.value); debouncedFilter({ vehicleReg: e.target.value }); }} />
           </div>
 
           <div className="relative">
@@ -136,8 +161,8 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -163,6 +188,16 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3 p-4">
+        {rentals.length === 0 && (
+          <p className="text-center py-12 text-gray-400">No rentals found</p>
+        )}
+        {rentals.map((r) => (
+          <RentalMobileCard key={r.id} rental={r} onClick={() => router.push(`/rentals/${r.id}`)} />
+        ))}
       </div>
 
       {/* Pagination */}

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS vehicle_updates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
   update_date DATE NOT NULL DEFAULT CURRENT_DATE,
   current_km INTEGER,

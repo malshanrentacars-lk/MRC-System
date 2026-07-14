@@ -86,6 +86,7 @@ async function _fetchRentals(params?: {
   search?: string;
   status?: string;
   vehicleReg?: string;
+  vehicleId?: string;
   customerId?: string;
   paymentStatus?: string;
   dateFrom?: string;
@@ -108,7 +109,9 @@ async function _fetchRentals(params?: {
   if (params?.status && params.status !== 'all') query = query.eq('status', params.status);
   if (params?.customerId) query = query.eq('customer_id', params.customerId);
   if (params?.paymentStatus) query = query.eq('payment_status', params.paymentStatus);
-  if (params?.vehicleReg) {
+  if (params?.vehicleId) {
+    query = query.eq('vehicle_id', params.vehicleId);
+  } else if (params?.vehicleReg) {
     const { data: v } = await supabaseAdmin.from('vehicles').select('id').ilike('reg_number', `%${params.vehicleReg}%`);
     const ids = (v ?? []).map(x => x.id);
     if (ids.length > 0) query = query.in('vehicle_id', ids);
@@ -136,6 +139,7 @@ export async function getRentals(params?: {
   search?: string;
   status?: string;
   vehicleReg?: string;
+  vehicleId?: string;
   customerId?: string;
   paymentStatus?: string;
   dateFrom?: string;

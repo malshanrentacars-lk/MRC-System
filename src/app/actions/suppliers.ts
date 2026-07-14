@@ -334,7 +334,8 @@ export async function getSupplierById(id: string) {
   return _cachedGetSupplierById(id);
 }
 
-async function _fetchVehiclesBySupplier(supplierId: string) {
+export async function getVehiclesBySupplier(supplierId: string) {
+  await requireAuth();
   const { data } = await supabaseAdmin
     .from("vehicles")
     .select("*, rentals(total_amount, status)")
@@ -342,15 +343,4 @@ async function _fetchVehiclesBySupplier(supplierId: string) {
     .eq("is_active", true)
     .order("created_at", { ascending: false });
   return data ?? [];
-}
-
-const _cachedGetVehiclesBySupplier = unstable_cache(
-  _fetchVehiclesBySupplier,
-  ['vehicles-by-supplier'],
-  { tags: [VEHICLES_TAG], revalidate: false },
-);
-
-export async function getVehiclesBySupplier(supplierId: string) {
-  await requireAuth();
-  return _cachedGetVehiclesBySupplier(supplierId);
 }

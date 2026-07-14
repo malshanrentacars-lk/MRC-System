@@ -5,8 +5,14 @@ import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { logActivity } from '@/app/actions/activity';
+import { buildDiff } from '@/lib/diff';
 import { readAddressForm } from '@/lib/address';
 import { COMPANIES_TAG } from '@/lib/cache-tags';
+
+const COMPANY_FIELDS: Record<string, string> = {
+  name: 'Name', phone: 'Phone', email: 'Email', notes: 'Notes',
+  street_address: 'Address', city: 'City', postal_code: 'Postal Code',
+};
 
 function buildCompanyPayload(formData: FormData) {
   const logo_url = (formData.get('logo_url') as string) || null;
@@ -35,6 +41,23 @@ export async function createCompany(formData: FormData) {
   revalidateTag(COMPANIES_TAG);
   await logActivity({ action: 'created', module: 'Companies', entity_id: data.id, entity_label: data.name });
   return { data };
+}
+
+export async function updateCompany(id: string, formData: FormData) {
+  await requireAuth();
+
+  const payload = buildCompanyPayload(formData);
+  const { data: current } = await supabaseAdmin.from('companies').select('*').eq('id', id).single();
+
+  const { error } = await supabaseAdmin.from('companies').update(payload).eq('id', id);
+  if (error) return { error: error.message };
+
+  revalidatePath('/companies');
+  revalidatePath(`/companies/${id}`);
+  revalidateTag(COMPANIES_TAG);
+  const diff = current ? buildDiff(current as Record<string, unknown>, payload as Record<string, unknown>, COMPANY_FIELDS) : { details: '', old_value: '', new_value: '' };
+  await logActivity({ action: 'updated', module: 'Companies', entity_id: id, entity_label: payload.name, ...diff });
+  return { success: true };
 }
 
 async function _fetchCompanies(params?: { search?: string; page?: number; pageSize?: number }) {

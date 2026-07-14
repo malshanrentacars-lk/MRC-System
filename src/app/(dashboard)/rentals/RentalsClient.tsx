@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, memo } from "react";
+import { useState, useTransition, memo, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, Search, Loader2, ChevronDown, Calendar } from "lucide-react";
@@ -8,6 +8,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { Rental } from "@/types";
 import { formatCurrency, formatDate, isOverdue } from "@/lib/utils";
 import { useDebounce } from "@/lib/useDebounce";
+import { getRentals } from "@/app/actions/rentals";
 
 const RentalGridRow = memo(function RentalGridRow({ rental, onClick }: { rental: Rental; onClick: () => void }) {
   const overdue = rental.status === "active" && isOverdue(rental.end_date);
@@ -69,7 +70,7 @@ interface RentalsClientProps {
   currentPage: number;
 }
 
-export default function RentalsClient({ rentals, total, currentPage }: RentalsClientProps) {
+export default function RentalsClient({ rentals: initialRentals, total: initialTotal, currentPage: initialPage }: RentalsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -80,6 +81,37 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
   const [customerId, setCustomerId] = useState(() => searchParams?.get("customerId") ?? "");
   const [paymentStatus, setPaymentStatus] = useState(() => searchParams?.get("paymentStatus") ?? "");
   const [isPending, startTransition] = useTransition();
+
+  const [allRentals, setAllRentals] = useState<Rental[]>(initialRentals);
+  const [total, setTotal] = useState(initialTotal);
+  const [clientPage, setClientPage] = useState(initialPage);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    setAllRentals(initialRentals);
+    setTotal(initialTotal);
+    setClientPage(initialPage);
+  }, [initialRentals, initialTotal, initialPage]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = clientPage + 1;
+    const result = await getRentals({
+      search: search || undefined,
+      status: status === "all" ? undefined : status,
+      vehicleReg: vehicleReg || undefined,
+      customerId: customerId || undefined,
+      paymentStatus: paymentStatus || undefined,
+      page: nextPage,
+      pageSize: 10,
+    });
+    if (result.data) {
+      setAllRentals(prev => [...prev, ...result.data]);
+      setClientPage(nextPage);
+      if (result.count !== undefined) setTotal(result.count);
+    }
+    setLoadingMore(false);
+  }
 
   function applyFilters(overrides?: Record<string, string>) {
     const params = new URLSearchParams();
@@ -98,13 +130,7 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
 
   const debouncedFilter = useDebounce(applyFilters, 300);
 
-  const hasMore = currentPage * 10 < total;
-
-  function goToPage(pageNum: number) {
-    const base = new URLSearchParams(searchParams?.toString() ?? "");
-    if (pageNum <= 1) base.delete("page"); else base.set("page", String(pageNum));
-    startTransition(() => router.push(`${pathname}?${base.toString()}`));
-  }
+  const hasMore = clientPage * 10 < total;
 
   return (
     <div className="section-card">
@@ -180,10 +206,10 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
             </tr>
           </thead>
           <tbody>
-            {rentals.length === 0 && (
+            {allRentals.length === 0 && (
               <tr><td colSpan={11} className="text-center py-12 text-gray-400">No rentals found</td></tr>
             )}
-            {rentals.map((r) => (
+            {allRentals.map((r) => (
               <RentalGridRow key={r.id} rental={r} onClick={() => router.push(`/rentals/${r.id}`)} />
             ))}
           </tbody>
@@ -192,38 +218,22 @@ export default function RentalsClient({ rentals, total, currentPage }: RentalsCl
 
       {/* Mobile Cards */}
       <div className="md:hidden space-y-3 p-4">
-        {rentals.length === 0 && (
+        {allRentals.length === 0 && (
           <p className="text-center py-12 text-gray-400">No rentals found</p>
         )}
-        {rentals.map((r) => (
+        {allRentals.map((r) => (
           <RentalMobileCard key={r.id} rental={r} onClick={() => router.push(`/rentals/${r.id}`)} />
         ))}
       </div>
 
-      {/* Pagination */}
+      {/* Load More */}
       <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-sm text-gray-500">Showing {(currentPage - 1) * 10 + 1} to {Math.min(currentPage * 10, total)} of {total}</span>
-        <div className="flex items-center gap-2">
-          {(() => {
-            const pageSize = 10;
-            const totalPages = Math.max(1, Math.ceil(total / pageSize));
-            const pages = [] as number[];
-            const start = Math.max(1, currentPage - 2);
-            const end = Math.min(totalPages, currentPage + 2);
-            for (let p = start; p <= end; p++) pages.push(p);
-            return (
-              <div className="flex items-center gap-1">
-                <button className="btn-ghost px-2" onClick={() => goToPage(1)} disabled={currentPage === 1}>First</button>
-                <button className="btn-ghost px-2" onClick={() => goToPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>&lt;</button>
-                {pages.map(p => (
-                  <button key={p} onClick={() => goToPage(p)} className={p === currentPage ? "px-3 py-1 rounded bg-blue-600 text-white" : "px-3 py-1 rounded border text-gray-700"}>{p}</button>
-                ))}
-                <button className="btn-ghost px-2" onClick={() => goToPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>&gt;</button>
-                <button className="btn-ghost px-2" onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}>Last</button>
-              </div>
-            );
-          })()}
-        </div>
+        <span className="text-sm text-gray-500">Showing {allRentals.length} of {total}</span>
+        {hasMore && (
+          <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm">
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
+        )}
       </div>
     </div>
   );

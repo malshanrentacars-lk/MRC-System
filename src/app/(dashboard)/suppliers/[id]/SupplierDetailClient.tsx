@@ -47,6 +47,7 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [visibleVehicleCount, setVisibleVehicleCount] = useState(10);
+  const [vehiclesTabCount, setVehiclesTabCount] = useState(20);
 
   const nameParts = supplier.name.trim().split(" ");
   const firstName = nameParts[0] || "";
@@ -184,19 +185,29 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
                   <p className="text-sm text-gray-400">No vehicles from this supplier.</p>
                 </div>
               ) : (
-                <table className="data-table">
-                  <thead><tr><th>Reg #</th><th>Brand</th><th>Model</th><th>Year</th><th>Type</th><th>Status</th></tr></thead>
-                  <tbody>
-                    {vehicles.map((v: any) => (
-                      <tr key={v.id}>
-                        <td className="font-medium text-blue-600">{v.reg_number}</td>
-                        <td>{v.brand}</td><td>{v.model}</td>
-                        <td>{v.year ?? "—"}</td><td>{v.type}</td>
-                        <td><StatusBadge status={v.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <>
+                  <div className="overflow-auto">
+                    <table className="data-table">
+                      <thead><tr><th>Reg #</th><th>Brand</th><th>Model</th><th>Year</th><th>Type</th><th>Status</th></tr></thead>
+                      <tbody>
+                        {vehicles.slice(0, vehiclesTabCount).map((v: any) => (
+                          <tr key={v.id} onClick={() => router.push(`/vehicles/${v.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
+                            <td className="font-medium text-blue-600">{v.reg_number}</td>
+                            <td>{v.brand}</td><td>{v.model}</td>
+                            <td>{v.year ?? "—"}</td><td>{v.type}</td>
+                            <td><StatusBadge status={v.status} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-xs text-gray-400">Showing {Math.min(vehiclesTabCount, vehicles.length)} of {vehicles.length}</span>
+                    {vehicles.length > vehiclesTabCount && (
+                      <button onClick={() => setVehiclesTabCount(c => c + 20)} className="btn-secondary text-xs">Load More</button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </TabsContent>

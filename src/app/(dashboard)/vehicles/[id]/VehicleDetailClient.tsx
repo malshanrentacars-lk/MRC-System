@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { Vehicle, Supplier, Rental, Company } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -11,7 +12,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Edit, Trash2, Upload, X, Plus, Minus, Camera, Pencil, Check,
-  Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown
+  Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown, Package, ExternalLink
 } from "lucide-react";
 import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES, calcTiersFromMonthly } from "@/lib/vehicleData";
 import FileUploader, { UploadedFile } from "@/components/shared/FileUploader";
@@ -352,12 +353,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
         <div className="section-card mb-4">
           <div className="px-5 py-3 border-b border-gray-100 bg-blue-50 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-700">Edit Vehicle</h2>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} className="btn-secondary text-sm">Cancel</button>
-              <button type="submit" form="vehicle-edit-form" disabled={isPending} className="btn-primary text-sm">
-                {isPending ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
           </div>
           <form id="vehicle-edit-form" onSubmit={handleEditSubmit} className="p-5">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -666,6 +661,13 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   ))}
                 </div>
               </div>
+
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                <button type="button" onClick={() => { setEditing(false); setEditBrand(vehicle.brand); setEditModel(vehicle.model); setError(null); }} className="btn-secondary text-sm">Cancel</button>
+                <button type="submit" disabled={isPending} className="btn-primary text-sm">
+                  {isPending ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
             </form>
           </div>
           )}
@@ -676,6 +678,9 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
           <div className="px-5 pt-4 flex items-center justify-between border-b border-gray-100 pb-0 flex-wrap gap-3">
             <TabsList className="border-b-0">
               <TabsTrigger value="details"><Car className="w-3.5 h-3.5 mr-1.5 inline" />Details</TabsTrigger>
+              {vehicle.source === "Supplier" && vehicle.supplier && (
+                <TabsTrigger value="supplier"><Package className="w-3.5 h-3.5 mr-1.5 inline" />Supplier</TabsTrigger>
+              )}
               <TabsTrigger value="images"><ImageIcon className="w-3.5 h-3.5 mr-1.5 inline" />Images</TabsTrigger>
               <TabsTrigger value="insurance"><Shield className="w-3.5 h-3.5 mr-1.5 inline" />Insurance & Service</TabsTrigger>
               <TabsTrigger value="pricing"><DollarSign className="w-3.5 h-3.5 mr-1.5 inline" />Pricing</TabsTrigger>
@@ -723,57 +728,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   </div>
                 ))}
               </div>
-
-              {/* Supplier Bank Details */}
-              {vehicle.supplier && (vehicle.supplier.bank || vehicle.supplier.account_number || vehicle.supplier.branch) && (
-                <div className="border-t border-gray-100 pt-6">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Supplier Bank Details</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-blue-50 rounded-lg p-4 border border-blue-100">
-                    {[
-                      { label: "Bank", value: vehicle.supplier.bank ?? "—" },
-                      { label: "Account Number", value: vehicle.supplier.account_number ?? "—" },
-                      { label: "Branch", value: vehicle.supplier.branch ?? "—" },
-                    ].map(f => (
-                      <div key={f.label}>
-                        <p className="text-xs text-gray-500 mb-0.5">{f.label}</p>
-                        <p className="text-sm font-medium text-gray-900">{f.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Schedule — supplier vehicles only */}
-              {vehicle.source === "Supplier" && vehicle.payment_days && (
-                <div className="border-t border-gray-100 pt-6">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Payment Schedule</p>
-                  <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Monthly Cost</span>
-                      <span className="text-sm font-bold text-gray-900">{vehicle.monthly_cost ? formatCurrency(vehicle.monthly_cost) : '—'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Frequency</span>
-                      <span className="text-sm font-medium text-gray-700">{vehicle.payment_frequency === '15_days' ? '15 Days (2x/month)' : '1 Month'}</span>
-                    </div>
-                    <div className="border-t border-amber-200 pt-3">
-                      <p className="text-xs text-gray-500 mb-2">Payment Days</p>
-                      <div className="space-y-1.5">
-                        {(vehicle.payment_days || "").split(",").map((day, i) => (
-                          <div key={i} className="flex items-center justify-between bg-white rounded px-3 py-2 border border-amber-100">
-                            <span className="text-sm font-medium text-gray-800">📋 Day {day.trim()} of every month</span>
-                            <span className="text-sm font-semibold text-amber-700">
-                              {vehicle.monthly_cost
-                                ? formatCurrency(vehicle.payment_frequency === '15_days' ? vehicle.monthly_cost / 2 : vehicle.monthly_cost)
-                                : '—'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Vehicle Documents */}
               <div className="border-t border-gray-100 pt-6">
@@ -864,6 +818,102 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
               )}
             </div>
           </TabsContent>
+
+          {/* ── SUPPLIER ── */}
+          {vehicle.source === "Supplier" && vehicle.supplier && (
+            <TabsContent value="supplier" className="mt-0">
+              <div className="p-5 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Supplier Details</p>
+                  </div>
+                  <Link href={`/suppliers/${vehicle.supplier.id}`} className="btn-secondary text-xs inline-flex items-center gap-1">
+                    <ExternalLink className="w-3 h-3" /> View Supplier
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">Name</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.supplier.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">Phone</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.supplier.phone ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">Email</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.supplier.email ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">NIC</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.supplier.nic ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">Address</p>
+                    <p className="text-sm font-medium text-gray-900">{vehicle.supplier.address ?? "—"}</p>
+                  </div>
+                  {vehicle.supplier.notes && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-400 mb-0.5">Notes</p>
+                      <p className="text-sm text-gray-600">{vehicle.supplier.notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {(vehicle.supplier.bank || vehicle.supplier.account_number || vehicle.supplier.branch) && (
+                  <div className="border-t border-gray-100 pt-6">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Bank Details</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-blue-50 rounded-lg p-4 border border-blue-100">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-0.5">Bank</p>
+                        <p className="text-sm font-medium text-gray-900">{vehicle.supplier.bank ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-0.5">Account Number</p>
+                        <p className="text-sm font-medium text-gray-900">{vehicle.supplier.account_number ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-0.5">Branch</p>
+                        <p className="text-sm font-medium text-gray-900">{vehicle.supplier.branch ?? "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Schedule */}
+                {vehicle.payment_days && (
+                  <div className="border-t border-gray-100 pt-6">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Payment Schedule</p>
+                    <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Monthly Cost</span>
+                        <span className="text-sm font-bold text-gray-900">{vehicle.monthly_cost ? formatCurrency(vehicle.monthly_cost) : '—'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Frequency</span>
+                        <span className="text-sm font-medium text-gray-700">{vehicle.payment_frequency === '15_days' ? '15 Days (2x/month)' : '1 Month'}</span>
+                      </div>
+                      <div className="border-t border-amber-200 pt-3">
+                        <p className="text-xs text-gray-500 mb-2">Payment Days</p>
+                        <div className="space-y-1.5">
+                          {(vehicle.payment_days || "").split(",").map((day: string, i: number) => (
+                            <div key={i} className="flex items-center justify-between bg-white rounded px-3 py-2 border border-amber-100">
+                              <span className="text-sm font-medium text-gray-800">Day {day.trim()} of every month</span>
+                              <span className="text-sm font-semibold text-amber-700">
+                                {vehicle.monthly_cost
+                                  ? formatCurrency(vehicle.payment_frequency === '15_days' ? vehicle.monthly_cost / 2 : vehicle.monthly_cost)
+                                  : '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          )}
 
           {/* ── IMAGES ── */}
           <TabsContent value="images" className="mt-0">

@@ -6,10 +6,9 @@ import RentalsClient from "./RentalsClient";
 export default async function RentalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; status?: string; vehicleReg?: string; customerId?: string; dateFrom?: string; dateTo?: string; page?: string }>;
+  searchParams: Promise<{ search?: string; status?: string; vehicleReg?: string; customerId?: string; dateFrom?: string; dateTo?: string }>;
 }) {
   const sp = await searchParams;
-  const page = parseInt(sp.page ?? "1");
   const { data: rentals, count } = await getRentals({
     search: sp.search,
     status: sp.status,
@@ -17,7 +16,7 @@ export default async function RentalsPage({
     customerId: sp.customerId,
     dateFrom: sp.dateFrom,
     dateTo: sp.dateTo,
-    page,
+    page: 1,
     pageSize: 10,
   });
 
@@ -38,7 +37,7 @@ export default async function RentalsPage({
           </Link>
         </div>
       </div>
-      <RentalsClient rentals={rentals} total={count} currentPage={page} />
+      <RentalsClient rentals={rentals} total={count} currentPage={1} />
     </div>
   );
 }

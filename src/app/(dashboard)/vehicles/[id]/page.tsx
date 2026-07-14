@@ -15,11 +15,11 @@ export default async function VehicleDetailPage({ params }: { params: Promise<{ 
     getVehicleById(p.id),
     getSuppliers({ pageSize: 100 }),
     getCompanies({ pageSize: 100 }),
-    getRentals({ vehicleReg: "", pageSize: 100 }),
+    getRentals({ vehicleId: p.id, pageSize: 100 }),
   ]);
   if (!vehicle) notFound();
 
-  const vehicleRentals = (rentals ?? []).filter((r: any) => r.vehicle_id === p.id);
+  const vehicleRentals = rentals ?? [];
 
   return (
     <div className="space-y-5 animate-fade-in">

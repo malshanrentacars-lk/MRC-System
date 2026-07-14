@@ -55,3 +55,6 @@ where not exists (select 1 from public.whatsapp_templates where type = 'Rental C
 insert into public.whatsapp_templates (name, type, message, is_active, channel)
 select 'Rental Reservation', 'Rental Reservation', 'Your reservation for {vehicleName} ({vehicleRegNo}) is confirmed from {pickupDate} to {returnDate}.', true, 'both'
 where not exists (select 1 from public.whatsapp_templates where type = 'Rental Reservation');
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON whatsapp_templates TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON whatsapp_message_logs TO anon, authenticated, service_role;

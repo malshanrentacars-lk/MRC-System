@@ -13,7 +13,7 @@ import { useDebounce } from "@/lib/useDebounce";
 const VehicleGridRow = memo(function VehicleGridRow({ vehicle, onClick }: { vehicle: Vehicle; onClick: () => void }) {
   return (
     <tr onClick={onClick} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
-      <td><span className="font-semibold text-gray-900">{vehicle.reg_number}</span></td>
+      <td><span className="font-semibold text-gray-900">{vehicle.reg_number}</span>{vehicle.nickname && <span className="text-xs text-gray-400 ml-1.5 italic">&quot;{vehicle.nickname}&quot;</span>}</td>
       <td className="text-blue-600 font-medium">{vehicle.brand}</td>
       <td>{vehicle.model}</td>
       <td>{vehicle.year ?? "—"}</td>
@@ -38,7 +38,7 @@ const VehicleMobileCard = memo(function VehicleMobileCard({ vehicle, onClick }: 
     <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <p className="font-semibold text-gray-900">{vehicle.reg_number}</p>
+          <p className="font-semibold text-gray-900">{vehicle.reg_number}{vehicle.nickname && <span className="text-xs text-gray-400 ml-1.5 italic">&quot;{vehicle.nickname}&quot;</span>}</p>
           <p className="text-sm text-blue-600">{vehicle.brand} {vehicle.model} {vehicle.year ? `· ${vehicle.year}` : ""}</p>
         </div>
         <StatusBadge status={vehicle.status} />

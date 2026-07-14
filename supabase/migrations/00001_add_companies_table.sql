@@ -18,3 +18,5 @@ create table if not exists companies (
 );
 
 create index if not exists idx_companies_name on companies(name);
+
+grant select, insert, update, delete on companies to anon, authenticated, service_role;

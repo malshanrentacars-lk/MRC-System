@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
   address TEXT,
   nic TEXT,
   notes TEXT,
-  is_active BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true,  
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -337,37 +337,5 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('vehicle-documents', 'veh
 INSERT INTO storage.buckets (id, name, public) VALUES ('agreements', 'agreements', true) ON CONFLICT DO NOTHING;
 INSERT INTO storage.buckets (id, name, public) VALUES ('company-assets', 'company-assets', true) ON CONFLICT DO NOTHING;
 
--- ============================================================
--- SEED DATA
--- ============================================================
+GRANT SELECT, INSERT, UPDATE, DELETE ON users, suppliers, vehicles, vehicle_photos, rate_tiers, customers, guarantors, rentals, vehicle_exchanges, company_settings, todos TO anon, authenticated, service_role;
 
--- Admin user: amil / Admin@1234
--- bcrypt hash of 'Admin@1234' with cost 10
-INSERT INTO users (username, full_name, email, password_hash, role) VALUES
-('amil', 'Amil Admin', 'amil@mrc.lk', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
-ON CONFLICT (username) DO NOTHING;
-
--- Company settings
-INSERT INTO company_settings (company_name, address, phone, email, service_interval_km, currency)
-VALUES ('MRC', 'Colombo 03, Sri Lanka', '+94 11 234 5678', 'info@mrc.lk', 5000, 'LKR')
-ON CONFLICT DO NOTHING;
-
--- Sample supplier
-INSERT INTO suppliers (id, name, phone, address, nic) VALUES
-('00000000-0000-0000-0000-000000000001', 'Perera Motors', '+94 71 234 5678', 'Colombo 07', '199012345678')
-ON CONFLICT DO NOTHING;
-
--- Sample vehicles
-INSERT INTO vehicles (id, reg_number, brand, model, year, color, type, source, status, daily_rate, current_km, next_service_km) VALUES
-('00000000-0000-0000-0000-000000000010', 'CAR-0001', 'Toyota', 'Aqua', 2021, 'Silver', 'Hatchback', 'Company', 'available', 4500, 25000, 30000),
-('00000000-0000-0000-0000-000000000011', 'ABC-1234', 'Honda', 'Fit', 2020, 'White', 'Hatchback', 'Supplier', 'available', 3500, 42000, 47000),
-('00000000-0000-0000-0000-000000000012', 'WP-5678', 'Toyota', 'KDH Van', 2019, 'White', 'Van', 'Company', 'available', 8000, 95000, 100000)
-ON CONFLICT DO NOTHING;
-
--- Update supplier for vehicle
-UPDATE vehicles SET supplier_id = '00000000-0000-0000-0000-000000000001' WHERE reg_number = 'ABC-1234';
-
--- Sample customer
-INSERT INTO customers (id, name, nic, phone, address, license_number) VALUES
-('00000000-0000-0000-0000-000000000020', 'Kasun Perera', '199012345678', '+94 77 123 4567', 'Colombo 05', 'B1234567')
-ON CONFLICT DO NOTHING;

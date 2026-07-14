@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { sendEmail } from "@/lib/services/email";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import { WHATSAPP_TAG } from "@/lib/cache-tags";
 
 export const runtime = "nodejs";
 
@@ -21,6 +23,7 @@ export async function POST(request: Request) {
     await sendEmail(to, subject || "MRC Notification", message);
 
     await supabaseAdmin.from("whatsapp_message_logs").insert({ customer, channel: "email", message, status: "Sent" });
+    revalidateTag(WHATSAPP_TAG);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

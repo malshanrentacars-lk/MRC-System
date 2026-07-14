@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ComponentType } from "react";
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { logoutAction } from "@/app/actions/auth";
+import { getMyAvatar } from "@/app/actions/users";
 import { SessionUser } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -106,6 +108,13 @@ function SidebarInner({
 }) {
   const userName = user?.full_name || "Guest";
   const userInitial = userName.charAt(0).toUpperCase();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar_url ?? null);
+
+  useEffect(() => {
+    getMyAvatar().then(url => { if (url) setAvatarUrl(url); }).catch(() => {});
+  }, []);
+
+  const displayAvatar = avatarUrl || user.avatar_url;
 
   return (
     <>
@@ -138,10 +147,14 @@ function SidebarInner({
       </nav>
 
       <div className="px-3 py-4">
-        <div className="mb-2 flex items-center justify-center gap-3 rounded-xl bg-background/80 px-2 py-2 md:justify-start md:px-3">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-            {userInitial}
-          </div>
+        <div className="mb-2 flex items-center gap-3 rounded-xl bg-background/80 px-2 py-2">
+          <Link href={`/users/${user.id}`} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-xs font-bold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 overflow-hidden hover:ring-2 hover:ring-emerald-400/50 transition-all">
+            {displayAvatar ? (
+              <img src={displayAvatar} alt={userName} className="h-full w-full object-cover" />
+            ) : (
+              userInitial
+            )}
+          </Link>
           <div className="hidden min-w-0 flex-1 md:block">
             <p className="truncate text-sm font-medium text-foreground">{userName}</p>
             <p className="text-[11px] capitalize text-muted-foreground">{user.role || "employee"}</p>

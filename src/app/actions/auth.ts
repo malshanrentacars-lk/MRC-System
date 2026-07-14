@@ -26,7 +26,7 @@ export async function loginAction(formData: FormData) {
 
   const { data: user, error } = await supabaseAdmin
     .from('users')
-    .select('id, username, full_name, email, password_hash, role, is_active')
+    .select('id, username, full_name, email, avatar_url, password_hash, role, is_active')
     .eq('username', username.trim().toLowerCase())
     .single();
 
@@ -66,6 +66,7 @@ export async function loginAction(formData: FormData) {
     full_name: user.full_name,
     role: user.role,
     email: user.email,
+    avatar_url: user.avatar_url,
   };
 
   const token = createSessionToken(sessionUser);

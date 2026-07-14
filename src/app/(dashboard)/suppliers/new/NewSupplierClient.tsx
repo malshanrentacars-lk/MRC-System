@@ -22,6 +22,13 @@ export default function NewSupplierClient() {
     const firstName = (fd.get("first_name") as string ?? "").trim();
     const lastName = (fd.get("last_name") as string ?? "").trim();
     fd.set("name", [firstName, lastName].filter(Boolean).join(" "));
+
+    const nicFront = (fd.get("nic_front_url") as string) || "";
+    const nicBack = (fd.get("nic_back_url") as string) || "";
+    if (!nicFront || !nicBack) {
+      setError("Please upload NIC Front and NIC Back documents.");
+      return;
+    }
     
     startTransition(async () => {
       const result = await createSupplier(fd);
@@ -42,12 +49,12 @@ export default function NewSupplierClient() {
             <input name="first_name" required className="form-input" placeholder="e.g. John" />
           </div>
           <div>
-            <label className="form-label">Last Name</label>
-            <input name="last_name" className="form-input" placeholder="e.g. Perera" />
+            <label className="form-label">Last Name <span className="text-red-500">*</span></label>
+            <input name="last_name" required className="form-input" placeholder="e.g. Perera" />
           </div>
           <div>
-            <label className="form-label">Phone</label>
-            <input name="phone" className="form-input" placeholder="e.g. 0771234567" />
+            <label className="form-label">Phone <span className="text-red-500">*</span></label>
+            <input name="phone" required className="form-input" placeholder="e.g. 0771234567" />
           </div>
           <div>
             <label className="form-label">Phone 2</label>
@@ -71,19 +78,19 @@ export default function NewSupplierClient() {
         </div>
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="form-label">Bank</label>
-            <select name="bank" className="form-select">
+            <label className="form-label">Bank <span className="text-red-500">*</span></label>
+            <select name="bank" required className="form-select">
               <option value="">— Select Bank —</option>
               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           <div>
-            <label className="form-label">Account Number</label>
-            <input name="account_number" className="form-input" />
+            <label className="form-label">Account Number <span className="text-red-500">*</span></label>
+            <input name="account_number" required className="form-input" />
           </div>
           <div>
-            <label className="form-label">Branch</label>
-            <input name="branch" className="form-input" />
+            <label className="form-label">Branch <span className="text-red-500">*</span></label>
+            <input name="branch" required className="form-input" />
           </div>
         </div>
       </div>
@@ -95,7 +102,7 @@ export default function NewSupplierClient() {
         <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <FileUploader
-              label="NIC — Front (JPG/PNG/PDF, max 5MB)"
+              label="NIC — Front (JPG/PNG/PDF, max 5MB) *"
               bucket="suppliers"
               folder={`${nicNumber}/nic_front`}
               accept=".jpg,.jpeg,.png,.pdf"
@@ -106,7 +113,7 @@ export default function NewSupplierClient() {
           </div>
           <div>
             <FileUploader
-              label="NIC — Back (JPG/PNG/PDF, max 5MB)"
+              label="NIC — Back (JPG/PNG/PDF, max 5MB) *"
               bucket="suppliers"
               folder={`${nicNumber}/nic_back`}
               accept=".jpg,.jpeg,.png,.pdf"

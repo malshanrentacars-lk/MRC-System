@@ -1,8 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { supabaseAdmin } from '@/lib/supabase'; // Your Supabase admin client
-import { requireAuth, requireAdmin } from '@/lib/auth'; // Your Auth functions
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { unstable_cache } from 'next/cache';
+import { supabaseAdmin } from '@/lib/supabase';
+import { requireAuth, requireAdmin } from '@/lib/auth';
+import { ATTENDANCE_TAG } from '@/lib/cache-tags';
 
 // ==========================================
 // 1. TYPES (Added the missing Types here)
@@ -229,7 +231,7 @@ async function fetchEmployees() {
   return (data ?? []).map((user) => ({ id: user.id, full_name: user.full_name, email: user.email ?? null }));
 }
 
-export async function getAttendanceDashboardData(filters?: AttendanceFilters): Promise<AttendanceDashboardData> {
+async function _fetchAttendanceDashboardData(filters?: AttendanceFilters): Promise<AttendanceDashboardData> {
   const currentUser = await requireAuth();
   const isAdmin = currentUser.role === 'admin';
   const employees = isAdmin ? await fetchEmployees() : [{ id: currentUser.id, full_name: currentUser.full_name, email: currentUser.email ?? null }];
@@ -239,6 +241,17 @@ export async function getAttendanceDashboardData(filters?: AttendanceFilters): P
   const reportRows = buildReports(records, employees);
 
   return { isAdmin, summary, records, todayRecords, employees, reportRows, currentUser };
+}
+
+const _cachedGetAttendanceDashboardData = unstable_cache(
+  _fetchAttendanceDashboardData,
+  ['attendance-dashboard'],
+  { tags: [ATTENDANCE_TAG], revalidate: false },
+);
+
+export async function getAttendanceDashboardData(filters?: AttendanceFilters): Promise<AttendanceDashboardData> {
+  await requireAuth();
+  return _cachedGetAttendanceDashboardData(filters);
 }
 
 export async function checkInAttendance() {
@@ -280,6 +293,7 @@ export async function checkInAttendance() {
   }
 
   revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { success: true };
 }
 
@@ -311,6 +325,7 @@ export async function checkOutAttendance() {
   if (error) return { error: error.message };
 
   revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { success: true };
 }
 
@@ -335,6 +350,7 @@ export async function updateAttendance(id: string, data: { check_in?: string | n
   if (error) return { error: error.message };
 
   revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { success: true };
 }
 
@@ -354,6 +370,7 @@ export async function clearAttendanceEntry(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { success: true };
 }
 
@@ -364,6 +381,7 @@ export async function deleteAttendance(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { success: true };
 }
 
@@ -374,6 +392,7 @@ export async function clearAllAttendance() {
   if (error) return { error: error.message };
 
   revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { success: true };
 }
 
@@ -410,5 +429,7 @@ export async function markAbsentAttendance(targetDate = getColomboDateKey()) {
     throw new Error(error.message);
   }
 
+  revalidatePath('/dashboard/attendance');
+  revalidateTag(ATTENDANCE_TAG);
   return { inserted: payload.length };
 }

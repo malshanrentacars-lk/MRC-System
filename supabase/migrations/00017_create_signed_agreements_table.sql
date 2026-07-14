@@ -11,3 +11,5 @@ create table if not exists signed_agreements (
 
 -- Optional index for faster lookup by rental
 create index if not exists idx_signed_agreements_rental_id on signed_agreements(rental_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON signed_agreements TO anon, authenticated, service_role;

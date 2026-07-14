@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
+import { WHATSAPP_TAG } from "@/lib/cache-tags";
 
 export const runtime = "nodejs";
 
@@ -27,6 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
+    revalidateTag(WHATSAPP_TAG);
     return NextResponse.json({
       _id: data.id,
       name: data.name,
@@ -50,6 +53,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    revalidateTag(WHATSAPP_TAG);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });

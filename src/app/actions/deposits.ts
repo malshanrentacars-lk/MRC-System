@@ -1,7 +1,9 @@
 'use server';
 
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
+import { RENTALS_TAG } from '@/lib/cache-tags';
 
 export interface DepositEntry {
   id: string;
@@ -13,9 +15,7 @@ export interface DepositEntry {
   vehicle: { reg_number: string; brand: string; model: string } | null;
 }
 
-export async function getRefundableDeposits(params?: { page?: number; pageSize?: number }) {
-  await requireAuth();
-
+async function _fetchRefundableDeposits(params?: { page?: number; pageSize?: number }) {
   const page = params?.page ?? 1;
   const pageSize = params?.pageSize ?? 10;
 
@@ -37,8 +37,18 @@ export async function getRefundableDeposits(params?: { page?: number; pageSize?:
   };
 }
 
-export async function getTotalDeposit(): Promise<number> {
+const _cachedGetRefundableDeposits = unstable_cache(
+  _fetchRefundableDeposits,
+  ['refundable-deposits'],
+  { tags: [RENTALS_TAG], revalidate: false },
+);
+
+export async function getRefundableDeposits(params?: { page?: number; pageSize?: number }) {
   await requireAuth();
+  return _cachedGetRefundableDeposits(params);
+}
+
+async function _fetchTotalDeposit() {
   const { data } = await supabaseAdmin
     .from('rentals')
     .select('deposit, status')
@@ -46,4 +56,15 @@ export async function getTotalDeposit(): Promise<number> {
     .gt('deposit', 0);
 
   return (data ?? []).reduce((sum, r) => sum + (r.deposit ?? 0), 0);
+}
+
+const _cachedGetTotalDeposit = unstable_cache(
+  _fetchTotalDeposit,
+  ['total-deposit'],
+  { tags: [RENTALS_TAG], revalidate: false },
+);
+
+export async function getTotalDeposit(): Promise<number> {
+  await requireAuth();
+  return _cachedGetTotalDeposit();
 }

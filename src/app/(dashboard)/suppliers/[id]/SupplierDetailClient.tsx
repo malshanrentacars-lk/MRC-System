@@ -56,6 +56,14 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
   function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+
+    const nicFront = (fd.get("nic_front_url") as string) || "";
+    const nicBack = (fd.get("nic_back_url") as string) || "";
+    if (!nicFront || !nicBack) {
+      setError("Please upload NIC Front and NIC Back documents.");
+      return;
+    }
+
     const fname = (fd.get("first_name") as string ?? "").trim();
     const lname = (fd.get("last_name") as string ?? "").trim();
     fd.set("name", [fname, lname].filter(Boolean).join(" "));
@@ -272,37 +280,40 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
             <input name="first_name" required defaultValue={firstName} className="form-input text-sm" />
           </div>
           <div>
-            <label className="form-label text-xs">Last Name</label>
-            <input name="last_name" defaultValue={lastName} className="form-input text-sm" />
+            <label className="form-label text-xs">Last Name <span className="text-red-500">*</span></label>
+            <input name="last_name" required defaultValue={lastName} className="form-input text-sm" />
           </div>
           {[
-            { name: "phone", label: "Phone", defaultValue: supplier.phone },
+            { name: "phone", label: "Phone", defaultValue: supplier.phone, required: true },
             { name: "phone2", label: "Phone 2", defaultValue: supplier.phone2 },
             { name: "email", label: "Email", defaultValue: supplier.email },
-            { name: "nic", label: "NIC", defaultValue: supplier.nic },
           ].map(f => (
             <div key={f.name}>
-              <label className="form-label text-xs">{f.label}</label>
-              <input name={f.name} defaultValue={f.defaultValue ?? ""} className="form-input text-sm" />
+              <label className="form-label text-xs">{f.label}{f.required && <span className="text-red-500"> *</span>}</label>
+              <input name={f.name} defaultValue={f.defaultValue ?? ""} required={f.required || false} className="form-input text-sm" />
             </div>
           ))}
+          <div>
+            <label className="form-label text-xs">NIC <span className="text-red-500">*</span></label>
+            <input name="nic" required defaultValue={supplier.nic ?? ""} className="form-input text-sm uppercase" />
+          </div>
           <AddressFields defaultValues={supplier} />
           
           {/* Bank Details Section */}
           <div>
-            <label className="form-label text-xs">Bank</label>
-            <select name="bank" defaultValue={supplier.bank ?? ""} className="form-select text-sm">
+            <label className="form-label text-xs">Bank <span className="text-red-500">*</span></label>
+            <select name="bank" required defaultValue={supplier.bank ?? ""} className="form-select text-sm">
               <option value="">— Select Bank —</option>
               {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           <div>
-            <label className="form-label text-xs">Account Number</label>
-            <input name="account_number" type="text" defaultValue={supplier.account_number ?? ""} className="form-input text-sm" />
+            <label className="form-label text-xs">Account Number <span className="text-red-500">*</span></label>
+            <input name="account_number" type="text" required defaultValue={supplier.account_number ?? ""} className="form-input text-sm" />
           </div>
           <div>
-            <label className="form-label text-xs">Branch</label>
-            <input name="branch" defaultValue={supplier.branch ?? ""} className="form-input text-sm" />
+            <label className="form-label text-xs">Branch <span className="text-red-500">*</span></label>
+            <input name="branch" required defaultValue={supplier.branch ?? ""} className="form-input text-sm" />
           </div>
           
           <div className="md:col-span-3">
@@ -312,8 +323,8 @@ export default function SupplierDetailClient({ supplier, vehicles }: { supplier:
           <div className="md:col-span-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 border-t border-gray-100 pt-4">Documents & Photos</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <FileUploader label="NIC Front (JPG/PNG/PDF, max 5MB)" fieldName="nic_front" bucket="suppliers" folder={`${supplier.nic || supplier.id}/nic_front`} maxFiles={1} initialFiles={supplier.nic_front_url ? [{ url: supplier.nic_front_url, path: supplier.nic_front_url }] : []} />
-              <FileUploader label="NIC Back (JPG/PNG/PDF, max 5MB)" fieldName="nic_back" bucket="suppliers" folder={`${supplier.nic || supplier.id}/nic_back`} maxFiles={1} initialFiles={supplier.nic_back_url ? [{ url: supplier.nic_back_url, path: supplier.nic_back_url }] : []} />
+              <FileUploader label="NIC Front (JPG/PNG/PDF, max 5MB) *" fieldName="nic_front" bucket="suppliers" folder={`${supplier.nic || supplier.id}/nic_front`} maxFiles={1} initialFiles={supplier.nic_front_url ? [{ url: supplier.nic_front_url, path: supplier.nic_front_url }] : []} />
+              <FileUploader label="NIC Back (JPG/PNG/PDF, max 5MB) *" fieldName="nic_back" bucket="suppliers" folder={`${supplier.nic || supplier.id}/nic_back`} maxFiles={1} initialFiles={supplier.nic_back_url ? [{ url: supplier.nic_back_url, path: supplier.nic_back_url }] : []} />
             </div>
           </div>
           {error && <p className="md:col-span-3 text-sm text-red-600">{error}</p>}

@@ -12,9 +12,18 @@ const UserMobileCard = memo(function UserMobileCard({ user, onClick }: { user: U
   return (
     <div onClick={onClick} className="section-card p-4 cursor-pointer active:scale-[0.98] transition-all">
       <div className="flex items-start justify-between mb-2">
-        <div>
-          <p className="font-semibold text-gray-900">{user.full_name}</p>
-          <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{user.username}</code>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt={user.full_name} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm font-bold text-blue-700">{user.full_name.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900">{user.full_name}</p>
+            <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{user.username}</code>
+          </div>
         </div>
         <StatusBadge status={user.role} />
       </div>
@@ -122,10 +131,19 @@ export default function UsersClient({
           {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="data-table">
-              <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+              <thead><tr><th></th><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
               <tbody>
                 {users.map(u => (
                   <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)} className="cursor-pointer transition-all duration-200 ease-out hover:bg-blue-50/80 hover:shadow-md hover:-translate-y-px hover:border-l-[3px] hover:border-l-blue-500 active:bg-blue-100 active:scale-[0.995] active:shadow-sm">
+                    <td>
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden">
+                        {u.avatar_url ? (
+                          <img src={u.avatar_url} alt={u.full_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-blue-700">{u.full_name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                    </td>
                     <td><code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">{u.username}</code></td>
                     <td className="font-medium">{u.full_name}</td>
                     <td className="text-gray-500">{u.email ?? "—"}</td>

@@ -59,3 +59,5 @@ BEGIN
   RETURN inserted_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON attendance TO anon, authenticated, service_role;

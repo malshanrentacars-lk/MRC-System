@@ -4,7 +4,7 @@ import { useState, useTransition, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, User, Edit, Activity, Shield, Mail, Calendar,
-  AlertCircle, RefreshCw, ChevronDown, Trash2
+  AlertCircle, RefreshCw, ChevronDown, Trash2, Check
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -257,6 +257,17 @@ export default function UserDetailClient({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmToggle, setConfirmToggle] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(user.avatar_url ?? '');
+
+  const AVATAR_STYLES = [
+    {
+      label: 'Pixel',
+      avatars: ['Lucy', 'Max', 'Leo', 'Ava', 'Sam', 'Zoe', 'Ben', 'Mia', 'Kai', 'Nova', 'Rex', 'Ivy', 'Jade', 'Finn', 'Luna', 'Odin'].map(seed => ({
+        url: `https://api.dicebear.com/9.x/pixel-art/svg?seed=${seed}`,
+        seed,
+      })),
+    },
+  ];
 
   async function handleToggleActive() {
     startTransition(async () => {
@@ -297,8 +308,12 @@ export default function UserDetailClient({
         <Link href="/users" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft className="w-4 h-4 text-gray-600" />
         </Link>
-        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-          <span className="text-base font-bold text-blue-700">{user.full_name.charAt(0).toUpperCase()}</span>
+        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {user.avatar_url ? (
+            <img src={user.avatar_url} alt={user.full_name} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-base font-bold text-blue-700">{user.full_name.charAt(0).toUpperCase()}</span>
+          )}
         </div>
         <div className="flex-1">
           <h1 className="page-title">{user.full_name}</h1>
@@ -335,7 +350,7 @@ export default function UserDetailClient({
             {tab === "details" && !isEditing && (
               <>
                 {(isAdmin || isOwnProfile) && (
-                  <button onClick={() => setIsEditing(true)} className="btn-secondary text-sm">
+                  <button onClick={() => { setIsEditing(true); setSelectedAvatar(user.avatar_url ?? ''); }} className="btn-secondary text-sm">
                     <Edit className="w-3.5 h-3.5 mr-1" /> Edit
                   </button>
                 )}
@@ -355,6 +370,50 @@ export default function UserDetailClient({
             {isEditing ? (
               <div className="p-5 bg-blue-50/30">
                 <form onSubmit={handleEditSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                  <div className="md:col-span-2">
+                    <label className="form-label text-xs">Profile Photo</label>
+                    <div className="flex items-start gap-4 mb-2">
+                      <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-gray-200">
+                        {selectedAvatar ? (
+                          <img src={selectedAvatar} alt={user.full_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-2xl font-bold text-gray-400">{user.full_name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      {selectedAvatar && (
+                        <button type="button" onClick={() => setSelectedAvatar('')} className="text-xs text-red-500 hover:text-red-600 mt-1">
+                          Remove photo
+                        </button>
+                      )}
+                    </div>
+                    <input type="hidden" name="avatar_url" value={selectedAvatar} />
+                    {AVATAR_STYLES.map(style => (
+                      <div key={style.label} className="mb-3">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{style.label}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {style.avatars.map(av => (
+                            <button
+                              key={av.seed}
+                              type="button"
+                              onClick={() => setSelectedAvatar(av.url)}
+                              className={`relative w-11 h-11 rounded-full overflow-hidden border-2 transition-all ${
+                                selectedAvatar === av.url
+                                  ? 'border-blue-500 ring-2 ring-blue-200 scale-110'
+                                  : 'border-gray-200 hover:border-gray-400 hover:scale-105'
+                              }`}
+                            >
+                              <img src={av.url} alt={av.seed} className="h-full w-full object-cover" />
+                              {selectedAvatar === av.url && (
+                                <span className="absolute inset-0 flex items-center justify-center bg-blue-500/20">
+                                  <Check className="w-4 h-4 text-blue-600" />
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                   <div>
                     <label className="form-label text-xs">Username</label>
                     <input defaultValue={user.username} className="form-input text-sm bg-gray-50 text-gray-500" disabled />
@@ -370,10 +429,14 @@ export default function UserDetailClient({
                   </div>
                   <div>
                     <label className="form-label text-xs">Role</label>
-                    <select name="role" defaultValue={user.role} className="form-select text-sm">
-                      <option value="employee">Employee</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                    {isAdmin ? (
+                      <select name="role" defaultValue={user.role} className="form-select text-sm">
+                        <option value="employee">Employee</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    ) : (
+                      <input value={user.role.charAt(0).toUpperCase() + user.role.slice(1)} className="form-input text-sm bg-gray-50 text-gray-500" disabled />
+                    )}
                   </div>
                   <div className="md:col-span-2 border-t border-gray-100 pt-3 mt-1">
                     <label className="form-label text-xs">
@@ -386,7 +449,7 @@ export default function UserDetailClient({
                     <button type="submit" disabled={isPending} className="btn-primary text-sm">
                       {isPending ? "Saving..." : "Save Changes"}
                     </button>
-                    <button type="button" onClick={() => { setIsEditing(false); setError(null); }} className="btn-secondary text-sm">
+                    <button type="button" onClick={() => { setIsEditing(false); setError(null); setSelectedAvatar(user.avatar_url ?? ''); }} className="btn-secondary text-sm">
                       Cancel
                     </button>
                   </div>

@@ -21,3 +21,5 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_module ON activity_logs(module);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON activity_logs TO anon, authenticated, service_role;

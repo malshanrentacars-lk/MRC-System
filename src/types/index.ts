@@ -74,6 +74,7 @@ export interface Vehicle {
   reg_number: string;
   brand: string;
   model: string;
+  nickname?: string;
   year?: number;
   color?: string;
   type: VehicleType;
@@ -335,4 +336,5 @@ export interface SessionUser {
   full_name: string;
   role: UserRole;
   email?: string;
+  avatar_url?: string;
 }

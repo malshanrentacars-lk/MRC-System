@@ -11,7 +11,7 @@ import { Vehicle } from '@/types';
 import { DASHBOARD_TAG, VEHICLES_TAG } from '@/lib/cache-tags';
 
 const VEHICLE_FIELDS: Record<string, string> = {
-  brand: 'Brand', model: 'Model', year: 'Year', color: 'Color',
+  nickname: 'Nickname', brand: 'Brand', model: 'Model', year: 'Year', color: 'Color',
   type: 'Type', status: 'Status', current_km: 'Current KM',
   next_service_km: 'Next Service KM', daily_rate: 'Daily Rate', notes: 'Notes',
   registration_document_url: 'Registration Document', bank: 'Bank', account_number: 'Account Number', branch: 'Branch',
@@ -93,6 +93,7 @@ function parseVehicleFields(formData: FormData) {
     reg_number: (formData.get('reg_number') as string)?.toUpperCase(),
     brand: formData.get('brand') as string,
     model: formData.get('model') as string,
+    nickname: formData.get('nickname') as string || null,
     year: formData.get('year') ? parseInt(formData.get('year') as string) : null,
     color: formData.get('color') as string || null,
     type: formData.get('type') as string,
@@ -252,7 +253,7 @@ export async function updateVehicle(id: string, formData: FormData) {
 
   // Fetch current record for diff before updating
   const { data: current } = await supabaseAdmin.from('vehicles')
-    .select('brand, model, year, color, type, status, current_km, next_service_km, daily_rate, notes, reg_number, registration_document_url, registration_document_path, revenue_license_url, eco_test_url, insurance_url, service_tag_url')
+    .select('nickname, brand, model, year, color, type, status, current_km, next_service_km, daily_rate, notes, reg_number, registration_document_url, registration_document_path, revenue_license_url, eco_test_url, insurance_url, service_tag_url')
     .eq('id', id).single();
 
   // Clean up old document if changed

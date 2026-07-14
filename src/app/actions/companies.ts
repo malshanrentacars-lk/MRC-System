@@ -1,10 +1,12 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { logActivity } from '@/app/actions/activity';
 import { readAddressForm } from '@/lib/address';
+import { COMPANIES_TAG } from '@/lib/cache-tags';
 
 function buildCompanyPayload(formData: FormData) {
   const logo_url = (formData.get('logo_url') as string) || null;
@@ -30,13 +32,12 @@ export async function createCompany(formData: FormData) {
   if (error) return { error: error.message };
 
   revalidatePath('/companies');
+  revalidateTag(COMPANIES_TAG);
   await logActivity({ action: 'created', module: 'Companies', entity_id: data.id, entity_label: data.name });
   return { data };
 }
 
-export async function getCompanies(params?: { search?: string; page?: number; pageSize?: number }) {
-  await requireAuth();
-
+async function _fetchCompanies(params?: { search?: string; page?: number; pageSize?: number }) {
   let query = supabaseAdmin
     .from('companies')
     .select('*', { count: 'exact' })
@@ -56,6 +57,17 @@ export async function getCompanies(params?: { search?: string; page?: number; pa
   return { data: data ?? [], count: count ?? 0 };
 }
 
+const _cachedGetCompanies = unstable_cache(
+  _fetchCompanies,
+  ['companies-list'],
+  { tags: [COMPANIES_TAG], revalidate: false },
+);
+
+export async function getCompanies(params?: { search?: string; page?: number; pageSize?: number }) {
+  await requireAuth();
+  return _cachedGetCompanies(params);
+}
+
 export async function deleteCompany(id: string) {
   await requireAuth();
   const { data: c } = await supabaseAdmin.from('companies').select('name').eq('id', id).single();
@@ -63,5 +75,27 @@ export async function deleteCompany(id: string) {
   if (error) return { error: error.message };
   await logActivity({ action: 'deleted', module: 'Companies', entity_id: id, entity_label: c?.name ?? id });
   revalidatePath('/companies');
+  revalidateTag(COMPANIES_TAG);
   return { success: true };
+}
+
+async function _fetchCompanyById(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from("companies")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) return null;
+  return data;
+}
+
+const _cachedGetCompanyById = unstable_cache(
+  _fetchCompanyById,
+  ['company-by-id'],
+  { tags: [COMPANIES_TAG], revalidate: false },
+);
+
+export async function getCompanyById(id: string) {
+  await requireAuth();
+  return _cachedGetCompanyById(id);
 }

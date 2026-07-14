@@ -182,6 +182,12 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
             }} />
           </div>
 
+          {/* Nickname */}
+          <div>
+            <label className="form-label">Nickname</label>
+            <input name="nickname" placeholder="e.g. Blue Lightning" className="form-input" />
+          </div>
+
           {/* Brand */}
           <div>
             <label className="form-label">Brand <span className="text-red-500">*</span></label>

@@ -1,23 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, Calendar, Mail, MapPin, Phone } from "lucide-react";
-import { requireAuth } from "@/lib/auth";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getCompanyById } from "@/app/actions/companies";
 import { formatDate } from "@/lib/utils";
 import { formatAddress } from "@/lib/address";
-
-async function getCompanyById(id: string) {
-  await requireAuth();
-
-  const { data, error } = await supabaseAdmin
-    .from("companies")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) return null;
-  return data;
-}
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const p = await params;

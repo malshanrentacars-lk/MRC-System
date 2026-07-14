@@ -368,6 +368,10 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   </select>
                 </div>
                 <div>
+                  <label className="form-label text-sm">Nickname</label>
+                  <input name="nickname" defaultValue={vehicle.nickname ?? ""} placeholder="e.g. Blue Lightning" className="form-input text-sm" />
+                </div>
+                <div>
                   <label className="form-label text-sm">Model <span className="text-red-500 ml-0.5">*</span></label>
                   <select name="model" value={editModel} onChange={e => setEditModel(e.target.value)} className="form-select text-sm">
                     {availableModels.map(m => <option key={m} value={m}>{m}</option>)}
@@ -694,6 +698,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
                   { label: "Registration", value: <span className="font-bold text-blue-600">{vehicle.reg_number}</span> },
+                  { label: "Nickname", value: vehicle.nickname ?? "—" },
                   { label: "Brand", value: vehicle.brand },
                   { label: "Model", value: vehicle.model },
                   { label: "Year", value: vehicle.year?.toString() ?? "—" },

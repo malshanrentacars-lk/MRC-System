@@ -1,12 +1,14 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { deleteOldStorageFile, moveStorageFile } from '@/app/actions/upload';
 import { logActivity } from '@/app/actions/activity';
 import { buildDiff } from '@/lib/diff';
 import { readAddressForm } from '@/lib/address';
+import { SUPPLIERS_TAG, GUARANTORS_TAG, VEHICLES_TAG } from '@/lib/cache-tags';
 
 const SUPPLIER_FIELDS: Record<string, string> = {
   name: 'Name', phone: 'Phone', phone2: 'Phone 2',
@@ -19,9 +21,7 @@ const GUARANTOR_FIELDS: Record<string, string> = {
   street_address: 'Street Address', street_address_2: 'Street Address 2', city: 'City', postal_code: 'Postal Code', relationship: 'Relationship', notes: 'Notes',
 };
 
-export async function getSuppliers(params?: { search?: string; page?: number; pageSize?: number }) {
-  await requireAuth();
-
+async function _fetchSuppliers(params?: { search?: string; page?: number; pageSize?: number }) {
   let query = supabaseAdmin
     .from('suppliers')
     .select('*', { count: 'exact' })
@@ -39,6 +39,17 @@ export async function getSuppliers(params?: { search?: string; page?: number; pa
   const { data, error, count } = await query;
   if (error) throw new Error(error.message);
   return { data: data ?? [], count: count ?? 0 };
+}
+
+const _cachedGetSuppliers = unstable_cache(
+  _fetchSuppliers,
+  ['suppliers-list'],
+  { tags: [SUPPLIERS_TAG], revalidate: false },
+);
+
+export async function getSuppliers(params?: { search?: string; page?: number; pageSize?: number }) {
+  await requireAuth();
+  return _cachedGetSuppliers(params);
 }
 
 function buildSupplierPayload(formData: FormData) {
@@ -134,6 +145,7 @@ export async function createSupplier(formData: FormData) {
   }
 
   revalidatePath('/suppliers');
+  revalidateTag(SUPPLIERS_TAG);
   await logActivity({ action: 'created', module: 'Suppliers', entity_id: data.id, entity_label: data.name });
   return { data };
 }
@@ -169,6 +181,7 @@ export async function updateSupplier(id: string, formData: FormData) {
 
   revalidatePath('/suppliers');
   revalidatePath(`/suppliers/${id}`);
+  revalidateTag(SUPPLIERS_TAG);
   const diff = current ? buildDiff(current as Record<string, unknown>, payload as Record<string, unknown>, SUPPLIER_FIELDS, ['address']) : { details: '', old_value: '', new_value: '' };
   await logActivity({ action: 'updated', module: 'Suppliers', entity_id: id, entity_label: payload.name as string, ...diff });
   return { success: true };
@@ -180,6 +193,7 @@ export async function deleteSupplier(id: string) {
   await supabaseAdmin.from('suppliers').update({ is_active: false }).eq('id', id);
   await logActivity({ action: 'deleted', module: 'Suppliers', entity_id: id, entity_label: s?.name ?? id });
   revalidatePath('/suppliers');
+  revalidateTag(SUPPLIERS_TAG);
   return { success: true };
 }
 
@@ -187,9 +201,7 @@ export async function deleteSupplier(id: string) {
 // GUARANTORS
 // ============================================================
 
-export async function getGuarantors(params?: { search?: string; customerId?: string; page?: number; pageSize?: number }) {
-  await requireAuth();
-
+async function _fetchGuarantors(params?: { search?: string; customerId?: string; page?: number; pageSize?: number }) {
   let query = supabaseAdmin
     .from('guarantors')
     .select('*, customer:customers(id, name, phone)', { count: 'exact' })
@@ -207,6 +219,17 @@ export async function getGuarantors(params?: { search?: string; customerId?: str
   const { data, error, count } = await query;
   if (error) throw new Error(error.message);
   return { data: data ?? [], count: count ?? 0 };
+}
+
+const _cachedGetGuarantors = unstable_cache(
+  _fetchGuarantors,
+  ['guarantors-list'],
+  { tags: [GUARANTORS_TAG], revalidate: false },
+);
+
+export async function getGuarantors(params?: { search?: string; customerId?: string; page?: number; pageSize?: number }) {
+  await requireAuth();
+  return _cachedGetGuarantors(params);
 }
 
 function buildGuarantorPayload(formData: FormData) {
@@ -243,6 +266,7 @@ export async function createGuarantor(formData: FormData) {
   if (error) return { error: error.message };
 
   revalidatePath('/guarantors');
+  revalidateTag(GUARANTORS_TAG);
   await logActivity({ action: 'created', module: 'Guarantors', entity_id: data.id, entity_label: data.name });
   return { data };
 }
@@ -273,6 +297,7 @@ export async function updateGuarantor(id: string, formData: FormData) {
 
   revalidatePath('/guarantors');
   revalidatePath(`/guarantors/${id}`);
+  revalidateTag(GUARANTORS_TAG);
   const diff = current ? await buildDiff(current as Record<string, unknown>, payload as Record<string, unknown>, GUARANTOR_FIELDS, ['address']) : { details: '', old_value: '', new_value: '' };
   await logActivity({ action: 'updated', module: 'Guarantors', entity_id: id, entity_label: payload.name as string, ...diff });
   return { success: true };
@@ -284,5 +309,48 @@ export async function deleteGuarantor(id: string) {
   await supabaseAdmin.from('guarantors').delete().eq('id', id);
   await logActivity({ action: 'deleted', module: 'Guarantors', entity_id: id, entity_label: g?.name ?? id });
   revalidatePath('/guarantors');
+  revalidateTag(GUARANTORS_TAG);
   return { success: true };
+}
+
+async function _fetchSupplierById(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from("suppliers")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) return null;
+  return data;
+}
+
+const _cachedGetSupplierById = unstable_cache(
+  _fetchSupplierById,
+  ['supplier-by-id'],
+  { tags: [SUPPLIERS_TAG], revalidate: false },
+);
+
+export async function getSupplierById(id: string) {
+  await requireAuth();
+  return _cachedGetSupplierById(id);
+}
+
+async function _fetchVehiclesBySupplier(supplierId: string) {
+  const { data } = await supabaseAdmin
+    .from("vehicles")
+    .select("*, rentals(total_amount, status)")
+    .eq("supplier_id", supplierId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+const _cachedGetVehiclesBySupplier = unstable_cache(
+  _fetchVehiclesBySupplier,
+  ['vehicles-by-supplier'],
+  { tags: [VEHICLES_TAG], revalidate: false },
+);
+
+export async function getVehiclesBySupplier(supplierId: string) {
+  await requireAuth();
+  return _cachedGetVehiclesBySupplier(supplierId);
 }

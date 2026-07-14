@@ -191,8 +191,7 @@ export async function deleteCustomer(id: string) {
   return { success: true };
 }
 
-export async function getCustomerByNic(nic: string) {
-  await requireAuth();
+async function _fetchCustomerByNic(nic: string) {
   if (!nic?.trim()) return null;
   const { data } = await supabaseAdmin
     .from('customers')
@@ -202,4 +201,15 @@ export async function getCustomerByNic(nic: string) {
     .limit(1)
     .single();
   return data ?? null;
+}
+
+const _cachedGetCustomerByNic = unstable_cache(
+  _fetchCustomerByNic,
+  ['customer-by-nic'],
+  { tags: [CUSTOMERS_TAG], revalidate: false },
+);
+
+export async function getCustomerByNic(nic: string) {
+  await requireAuth();
+  return _cachedGetCustomerByNic(nic);
 }

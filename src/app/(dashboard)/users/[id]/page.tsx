@@ -1,18 +1,8 @@
 import { notFound } from "next/navigation";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getUserById } from "@/app/actions/users";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import UserDetailClient from "./UserDetailClient";
-
-async function getUserById(id: string) {
-  const { data, error } = await supabaseAdmin
-    .from("users")
-    .select("id, username, full_name, email, role, is_active, created_at")
-    .eq("id", id)
-    .single();
-  if (error) return null;
-  return data;
-}
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();

@@ -75,7 +75,7 @@ export default function AgreementsListClient({ templates: initialTemplates, isAd
         <p className="text-xs text-gray-500">
           Create agreement format templates with placeholders like {'{customer_name}'}, {'{vehicle_reg}'}, etc.
         </p>
-        {!showForm && (
+        {!showForm && isAdmin && (
           <button onClick={startCreate} className="btn-primary text-sm">
             <Plus className="w-4 h-4" /> New Template
           </button>
@@ -166,22 +166,26 @@ export default function AgreementsListClient({ templates: initialTemplates, isAd
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
                       <Check className="w-3 h-3" /> Active
                     </span>
-                  ) : (
+                  ) : isAdmin ? (
                     <button onClick={() => handleSetActive(t.id, t.type)} className="text-xs text-blue-600 hover:text-blue-700">
                       Set Active
                     </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">Inactive</span>
                   )}
                 </td>
                 <td className="text-xs text-gray-400">{formatDate(t.updated_at)}</td>
                 <td>
-                  <div className="flex gap-2">
-                    <button onClick={() => startEdit(t)} className="text-xs text-blue-600 hover:text-blue-700">
-                      <FileEdit className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => handleDelete(t.id)} className="text-xs text-red-500 hover:text-red-600">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <button onClick={() => startEdit(t)} className="text-xs text-blue-600 hover:text-blue-700">
+                        <FileEdit className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(t.id)} className="text-xs text-red-500 hover:text-red-600">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

@@ -16,7 +16,7 @@ const USER_FIELDS: Record<string, string> = {
 };
 
 async function _fetchUsers() {
-  const { data, error } = await supabaseAdmin.from('users').select('id, username, full_name, email, avatar_url, role, is_active, created_at').order('created_at', { ascending: true });
+  const { data, error } = await supabaseAdmin.from('users').select('id, username, full_name, email, avatar_url, totp_enabled, totp_setup_required, role, is_active, created_at').order('created_at', { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
 }
@@ -35,7 +35,7 @@ export async function getUsers() {
 async function _fetchUserById(id: string) {
   const { data, error } = await supabaseAdmin
     .from("users")
-    .select("id, username, full_name, email, avatar_url, role, is_active, created_at")
+    .select("id, username, full_name, email, avatar_url, totp_enabled, totp_setup_required, role, is_active, created_at")
     .eq("id", id)
     .single();
   if (error) return null;

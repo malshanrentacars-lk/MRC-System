@@ -22,6 +22,8 @@ export interface User {
   role: UserRole;
   is_active: boolean;
   avatar_url?: string;
+  totp_enabled?: boolean;
+  totp_setup_required?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -337,4 +339,5 @@ export interface SessionUser {
   role: UserRole;
   email?: string;
   avatar_url?: string;
+  token_version?: number;
 }

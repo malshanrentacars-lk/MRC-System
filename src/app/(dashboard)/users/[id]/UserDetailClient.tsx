@@ -4,13 +4,14 @@ import { useState, useTransition, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, User, Edit, Activity, Shield, Mail, Calendar,
-  AlertCircle, RefreshCw, ChevronDown, Trash2, Check
+  AlertCircle, RefreshCw, ChevronDown, Trash2, Check, ShieldCheck
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { updateUser, toggleUserActive } from "@/app/actions/users";
 import { getActivityLogs } from "@/app/actions/activity";
 import { useRouter } from "next/navigation";
+import { getTOTPStatus, adminResetTOTP } from "@/app/actions/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type LogEntry = {
@@ -258,6 +259,33 @@ export default function UserDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [confirmToggle, setConfirmToggle] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(user.avatar_url ?? '');
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSetupRequired, setTotpSetupRequired] = useState(true);
+  const [totpLoading, setTotpLoading] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrSecret, setQrSecret] = useState("");
+
+  useEffect(() => {
+    getTOTPStatus(user.id).then(s => {
+      setTotpEnabled(s.enabled);
+      setTotpSetupRequired(s.setupRequired);
+    }).catch(() => {});
+  }, [user.id]);
+
+  async function handleResetTOTP() {
+    if (!confirm("Reset 2FA for this user? They will be immediately logged out and must re-scan the QR code to access the system.")) return;
+    setTotpLoading(true);
+    const result = await adminResetTOTP(user.id);
+    if ("qrDataUrl" in result) {
+      setQrDataUrl(result.qrDataUrl);
+      setQrSecret(result.secret);
+      setShowQrModal(true);
+    }
+    setTotpEnabled(false);
+    setTotpSetupRequired(true);
+    setTotpLoading(false);
+  }
 
   const AVATAR_STYLES = [
     {
@@ -407,7 +435,28 @@ export default function UserDetailClient({
                                 <span className="absolute inset-0 flex items-center justify-center bg-blue-500/20">
                                   <Check className="w-4 h-4 text-blue-600" />
                                 </span>
-                              )}
+      )}
+
+      {/* QR Code Modal — shown after Reset 2FA */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">New 2FA Setup QR</h3>
+            <p className="text-sm text-gray-600 mb-4">Share this QR with <strong>{user.full_name}</strong> to re-scan on their authenticator app.</p>
+            <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center mb-4">
+              <img src={qrDataUrl} alt="2FA QR Code" className="w-48 h-48" />
+              <p className="text-xs text-gray-400 mt-3 mb-1">Manual key:</p>
+              <code className="text-sm font-mono bg-gray-200 px-3 py-1.5 rounded select-all break-all w-full text-center">{qrSecret}</code>
+            </div>
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-4">
+              User has been logged out. They must scan this QR to regain access.
+            </p>
+            <button onClick={() => setShowQrModal(false)} className="btn-primary text-sm w-full">
+              Done
+            </button>
+          </div>
+        </div>
+      )}
                             </button>
                           ))}
                         </div>
@@ -493,6 +542,42 @@ export default function UserDetailClient({
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${user.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
                       {user.is_active ? "Active" : "Inactive"}
                     </span>
+                  </div>
+                </div>
+
+                {/* Two-Factor Authentication */}
+                <div className="border-t border-gray-100 pt-6">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Two-Factor Authentication
+                  </p>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {totpEnabled ? (
+                            <span className="text-green-700">Enabled</span>
+                          ) : totpSetupRequired ? (
+                            <span className="text-amber-600">Setup Required</span>
+                          ) : (
+                            <span className="text-red-600">Disabled</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {totpEnabled
+                            ? "User authenticates with app-based 2FA"
+                            : totpSetupRequired
+                            ? "User must set up 2FA before accessing the system"
+                            : "2FA is not required for this user"}
+                        </p>
+                      </div>
+                      {isAdmin && (
+                        <div className="flex gap-2">
+                          <button onClick={handleResetTOTP} disabled={totpLoading} className="btn-secondary text-xs">
+                            {totpLoading ? "..." : "Reset 2FA"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

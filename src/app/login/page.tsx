@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { loginAction } from "@/app/actions/auth";
 import { Car, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -14,7 +16,11 @@ export default function LoginPage() {
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await loginAction(formData);
-      if (result?.error) setError(result.error);
+      if (result?.redirect) {
+        router.push(result.redirect);
+      } else if (result?.error) {
+        setError(result.error);
+      }
     });
   }
 

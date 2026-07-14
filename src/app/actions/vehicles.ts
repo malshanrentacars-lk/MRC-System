@@ -432,3 +432,47 @@ export async function deleteVehiclePhoto(photoId: string, storagePath: string, v
   revalidateTag(VEHICLES_TAG);
   return { success: true };
 }
+
+// ─── Vehicle Updates ─────────────────────────────────────────────────────
+
+export async function getVehicleUpdates(vehicleId: string) {
+  await requireAuth();
+  const { data } = await supabaseAdmin
+    .from('vehicle_updates')
+    .select('*, created_by_user:users(id, full_name)')
+    .eq('vehicle_id', vehicleId)
+    .order('update_date', { ascending: false })
+    .order('created_at', { ascending: false });
+  return data ?? [];
+}
+
+export async function addVehicleUpdate(vehicleId: string, formData: FormData) {
+  const session = await requireAuth();
+
+  const updateDate = formData.get('update_date') as string;
+  const kmVal = formData.get('current_km') as string;
+  const description = formData.get('description') as string;
+
+  if (!description) return { error: 'Description is required' };
+
+  const update: Record<string, unknown> = {
+    vehicle_id: vehicleId,
+    update_date: updateDate || new Date().toISOString().split('T')[0],
+    description,
+    created_by: session.id,
+  };
+
+  if (kmVal) {
+    update.current_km = parseInt(kmVal);
+    // Also update the vehicle's current_km
+    await supabaseAdmin.from('vehicles').update({ current_km: parseInt(kmVal) }).eq('id', vehicleId);
+  }
+
+  const { data, error } = await supabaseAdmin.from('vehicle_updates').insert(update).select().single();
+  if (error) return { error: error.message };
+
+  revalidatePath(`/vehicles/${vehicleId}`);
+  revalidateTag(VEHICLES_TAG);
+  await logActivity({ action: 'updated', module: 'Vehicles', entity_id: vehicleId, details: `Vehicle update: ${description}` });
+  return { success: true, data };
+}

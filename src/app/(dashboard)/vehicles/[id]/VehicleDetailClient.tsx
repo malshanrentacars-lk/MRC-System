@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Vehicle, Supplier, Rental, Company } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { updateVehicle, deleteVehicle, uploadVehiclePhoto, deleteVehiclePhoto } from "@/app/actions/vehicles";
+import { updateVehicle, deleteVehicle, uploadVehiclePhoto, deleteVehiclePhoto, getVehicleUpdates, addVehicleUpdate } from "@/app/actions/vehicles";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Edit, Trash2, Upload, X, Plus, Minus, Camera, Pencil, Check,
-  Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown, Package, ExternalLink
+  Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown, Package, ExternalLink, History
 } from "lucide-react";
 import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES, calcTiersFromMonthly } from "@/lib/vehicleData";
 import FileUploader, { UploadedFile } from "@/components/shared/FileUploader";
@@ -179,6 +179,95 @@ function FinancialsTab({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Vehicle Updates Tab ──────────────────────────────────────────────────
+function VehicleUpdatesTab({ vehicleId }: { vehicleId: string }) {
+  const [updates, setUpdates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const today = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    getVehicleUpdates(vehicleId).then(data => {
+      setUpdates(data);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [vehicleId]);
+
+  function handleAdd(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setError(null);
+    startTransition(async () => {
+      const result = await addVehicleUpdate(vehicleId, fd);
+      if ("error" in result && result.error) { setError(result.error); return; }
+      e.currentTarget.reset();
+      setUpdates(prev => [result.data, ...prev]);
+    });
+  }
+
+  return (
+    <div className="p-5 space-y-6">
+      {/* Add Update Form */}
+      <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Log an Update</p>
+        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          <div>
+            <label className="form-label text-[10px]">Date</label>
+            <input name="update_date" type="date" defaultValue={today} className="form-input text-sm" />
+          </div>
+          <div>
+            <label className="form-label text-[10px]">Current KM</label>
+            <input name="current_km" type="number" placeholder="e.g. 50000" className="form-input text-sm" />
+          </div>
+          <div className="md:col-span-1">
+            <label className="form-label text-[10px]">Description <span className="text-red-500">*</span></label>
+            <input name="description" required placeholder="e.g. Oil change, new tires" className="form-input text-sm" />
+          </div>
+          <div>
+            <button type="submit" disabled={isPending} className="btn-primary text-sm w-full">
+              {isPending ? "Saving..." : "Add Update"}
+            </button>
+          </div>
+        </form>
+        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      </div>
+
+      {/* Updates Log */}
+      {loading ? (
+        <div className="text-center py-8 text-gray-400 text-sm">Loading...</div>
+      ) : updates.length === 0 ? (
+        <div className="flex flex-col items-center py-12 text-gray-300">
+          <History className="w-10 h-10 mb-2" />
+          <p className="text-sm text-gray-400">No updates logged yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-400">{updates.length} update{updates.length !== 1 ? 's' : ''}</p>
+          {updates.map((u: any, i: number) => (
+            <div key={u.id} className="flex gap-4">
+              <div className="flex flex-col items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                {i < updates.length - 1 && <div className="w-0.5 flex-1 bg-blue-200 my-1" />}
+              </div>
+              <div className="flex-1 bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-medium text-gray-900">{u.description}</p>
+                  <span className="text-xs text-gray-400">{formatDate(u.update_date)}</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  {u.current_km != null && <span>{u.current_km.toLocaleString()} km</span>}
+                  {u.created_by_user && <span>by {u.created_by_user.full_name}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -678,6 +767,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
           <div className="px-5 pt-4 flex items-center justify-between border-b border-gray-100 pb-0 flex-wrap gap-3">
             <TabsList className="border-b-0">
               <TabsTrigger value="details"><Car className="w-3.5 h-3.5 mr-1.5 inline" />Details</TabsTrigger>
+              <TabsTrigger value="updates"><History className="w-3.5 h-3.5 mr-1.5 inline" />Updates</TabsTrigger>
               {vehicle.source === "Supplier" && vehicle.supplier && (
                 <TabsTrigger value="supplier"><Package className="w-3.5 h-3.5 mr-1.5 inline" />Supplier</TabsTrigger>
               )}
@@ -817,6 +907,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* ── UPDATES ── */}
+          <TabsContent value="updates" className="mt-0">
+            <VehicleUpdatesTab vehicleId={vehicle.id} />
           </TabsContent>
 
           {/* ── SUPPLIER ── */}

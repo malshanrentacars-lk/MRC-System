@@ -139,11 +139,11 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="form-label">Pickup Date <span className="text-red-500">*</span></label>
-                <input type="date" className="form-input" value={startDate} onChange={e => { setStartDate(e.target.value); setOverlapWarning(false); }} min={new Date().toISOString().substring(0, 10)} />
+                <input type="date" className="form-input" value={startDate} onChange={e => { setStartDate(e.target.value); setOverlapWarning(false); }} />
               </div>
               <div>
                 <label className="form-label">Return Date <span className="text-red-500">*</span></label>
-                <input type="date" className="form-input" value={endDate} onChange={e => { setEndDate(e.target.value); setOverlapWarning(false); }} min={startDate || new Date().toISOString().substring(0, 10)} />
+                <input type="date" className="form-input" value={endDate} onChange={e => { setEndDate(e.target.value); setOverlapWarning(false); }} min={startDate || undefined} />
               </div>
             </div>
 

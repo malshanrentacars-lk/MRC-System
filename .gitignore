@@ -27,3 +27,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# project documentation (local only)
+ARCHITECTURE.md
+README.md

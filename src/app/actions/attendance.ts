@@ -46,16 +46,19 @@ type AttendanceFilters = {
   search?: string;
   status?: AttendanceStatus | 'all';
   date?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 type AttendanceDashboardData = {
   isAdmin: boolean;
   summary: AttendanceSummary;
   records: AttendanceRecord[];
+  totalRecords: number;
   todayRecords: AttendanceRecord[];
   employees: Array<{ id: string; full_name: string; email?: string | null }>;
   reportRows: AttendanceReportRow[];
-  currentUser: any; // Use 'any' if a type error occurs
+  currentUser: any;
 };
 
 
@@ -166,9 +169,12 @@ function buildReports(records: AttendanceRecord[], employees: Array<{ id: string
 }
 
 async function fetchAttendanceRecords(session: any, filters?: AttendanceFilters) {
+  const page = filters?.page ?? 1;
+  const pageSize = filters?.pageSize ?? 20;
+
   let query = supabaseAdmin
     .from('attendance')
-    .select('id, employee_id, employee_name, employee_email, check_in, check_out, status, working_hours, created_at')
+    .select('id, employee_id, employee_name, employee_email, check_in, check_out, status, working_hours, created_at', { count: 'exact' })
     .order('created_at', { ascending: false });
 
   if (session.role !== 'admin') {
@@ -184,21 +190,17 @@ async function fetchAttendanceRecords(session: any, filters?: AttendanceFilters)
     query = query.eq('status', filters.status);
   }
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-
-  let records = (data ?? []) as AttendanceRecord[];
   if (filters?.search?.trim()) {
-    const term = filters.search.trim().toLowerCase();
-    records = records.filter((record) =>
-      [record.employee_name, record.employee_email ?? '']
-        .join(' ')
-        .toLowerCase()
-        .includes(term)
-    );
+    const term = filters.search.trim();
+    query = query.or(`employee_name.ilike.%${term}%,employee_email.ilike.%${term}%`);
   }
 
-  return records;
+  query = query.range((page - 1) * pageSize, page * pageSize - 1);
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+
+  return { records: (data ?? []) as AttendanceRecord[], count: count ?? 0 };
 }
 
 async function fetchTodayRecords(session: any) {
@@ -235,12 +237,12 @@ async function _fetchAttendanceDashboardData(filters?: AttendanceFilters): Promi
   const currentUser = await requireAuth();
   const isAdmin = currentUser.role === 'admin';
   const employees = isAdmin ? await fetchEmployees() : [{ id: currentUser.id, full_name: currentUser.full_name, email: currentUser.email ?? null }];
-  const records = await fetchAttendanceRecords(currentUser, filters);
+  const { records, count: totalRecords } = await fetchAttendanceRecords(currentUser, filters);
   const todayRecords = await fetchTodayRecords(currentUser);
   const summary = buildSummary(todayRecords, isAdmin ? employees.length : 1);
   const reportRows = buildReports(records, employees);
 
-  return { isAdmin, summary, records, todayRecords, employees, reportRows, currentUser };
+  return { isAdmin, summary, records, totalRecords, todayRecords, employees, reportRows, currentUser };
 }
 
 const _cachedGetAttendanceDashboardData = unstable_cache(

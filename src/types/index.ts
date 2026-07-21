@@ -53,8 +53,27 @@ export interface Company extends AddressParts {
   created_by?: string;
 }
 
+export interface Contact extends AddressParts {
+  id: string;
+  name: string;
+  phone?: string;
+  phone2?: string;
+  email?: string;
+  nic?: string;
+  notes?: string;
+  is_active: boolean;
+  nic_front_url?: string;
+  nic_back_url?: string;
+  photo_url?: string;
+  utility_bill_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Supplier extends AddressParts {
   id: string;
+  contact_id?: string;
+  contact?: Contact;
   name: string;
   phone?: string;
   phone2?: string;
@@ -67,6 +86,8 @@ export interface Supplier extends AddressParts {
   is_active: boolean;
   nic_front_url?: string;
   nic_back_url?: string;
+  photo_url?: string;
+  company_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -144,6 +165,8 @@ export interface RateTier {
 
 export interface Customer extends AddressParts {
   id: string;
+  contact_id?: string;
+  contact?: Contact;
   name: string;
   nic?: string;
   phone?: string;
@@ -157,14 +180,19 @@ export interface Customer extends AddressParts {
   nic_back_url?: string;
   photo_url?: string;
   utility_bill_url?: string;
+  utility_bill_path?: string;
   driving_license_front_url?: string;
+  driving_license_front_path?: string;
   driving_license_back_url?: string;
+  driving_license_back_path?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface Guarantor extends AddressParts {
   id: string;
+  contact_id?: string;
+  contact?: Contact;
   customer_id?: string;
   customer?: Customer;
   name: string;
@@ -177,6 +205,7 @@ export interface Guarantor extends AddressParts {
   nic_back_url?: string;
   photo_url?: string;
   utility_bill_url?: string;
+  utility_bill_path?: string;
   created_at: string;
   updated_at: string;
 }

@@ -15,10 +15,16 @@ const USER_FIELDS: Record<string, string> = {
   full_name: 'Full Name', email: 'Email', role: 'Role', avatar_url: 'Avatar',
 };
 
-async function _fetchUsers() {
-  const { data, error } = await supabaseAdmin.from('users').select('id, username, full_name, email, avatar_url, totp_enabled, totp_setup_required, role, is_active, created_at').order('created_at', { ascending: true });
+async function _fetchUsers(params?: { page?: number; pageSize?: number }) {
+  const page = params?.page ?? 1;
+  const pageSize = params?.pageSize ?? 20;
+  const { data, error, count } = await supabaseAdmin
+    .from('users')
+    .select('id, username, full_name, email, avatar_url, totp_enabled, totp_setup_required, role, is_active, created_at, updated_at', { count: 'exact' })
+    .order('created_at', { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1);
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return { data: data ?? [], count: count ?? 0 };
 }
 
 const _cachedGetUsers = unstable_cache(
@@ -27,9 +33,9 @@ const _cachedGetUsers = unstable_cache(
   { tags: [USERS_TAG], revalidate: false },
 );
 
-export async function getUsers() {
+export async function getUsers(params?: { page?: number; pageSize?: number }) {
   await requireAuth();
-  return _cachedGetUsers();
+  return _cachedGetUsers(params);
 }
 
 async function _fetchUserById(id: string) {
@@ -145,9 +151,16 @@ export async function toggleUserActive(id: string, isActive: boolean) {
 }
 
 // Todo actions
-async function _fetchTodos() {
-  const { data } = await supabaseAdmin.from('todos').select('*').order('due_date', { ascending: true, nullsFirst: false });
-  return data ?? [];
+async function _fetchTodos(params?: { page?: number; pageSize?: number }) {
+  const page = params?.page ?? 1;
+  const pageSize = params?.pageSize ?? 20;
+  const { data, error, count } = await supabaseAdmin
+    .from('todos')
+    .select('*', { count: 'exact' })
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
+  if (error) throw new Error(error.message);
+  return { data: data ?? [], count: count ?? 0 };
 }
 
 const _cachedGetTodos = unstable_cache(
@@ -156,9 +169,9 @@ const _cachedGetTodos = unstable_cache(
   { tags: [TODOS_TAG], revalidate: false },
 );
 
-export async function getTodos() {
+export async function getTodos(params?: { page?: number; pageSize?: number }) {
   await requireAuth();
-  return _cachedGetTodos();
+  return _cachedGetTodos(params);
 }
 
 export async function createTodo(title: string, dueDate?: string, description?: string) {

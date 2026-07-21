@@ -51,7 +51,7 @@ export async function getRefundableDeposits(params?: { page?: number; pageSize?:
 async function _fetchTotalDeposit() {
   const { data } = await supabaseAdmin
     .from('rentals')
-    .select('deposit, status')
+    .select('deposit')
     .in('status', ['active', 'booked'])
     .gt('deposit', 0);
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition, memo } from "react";
+import { useState, useTransition, memo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Users, Activity } from "lucide-react";
-import { createUser, updateUser } from "@/app/actions/users";
+import { createUser, updateUser, getUsers } from "@/app/actions/users";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ActivityLogTab from "./ActivityLogTab";
 import { User } from "@/types";
@@ -37,18 +37,37 @@ const UserMobileCard = memo(function UserMobileCard({ user, onClick }: { user: U
 
 export default function UsersClient({
   users: initialUsers,
+  totalCount,
   isAdmin,
 }: {
   users: User[];
+  totalCount: number;
   isAdmin: boolean;
 }) {
   const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(totalCount > initialUsers.length);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"users" | "activity">(isAdmin ? "users" : "activity");
+
+  const handleLoadMore = useCallback(async () => {
+    setLoadingMore(true);
+    const next = page + 1;
+    const { data } = await getUsers({ page: next, pageSize: 20 });
+    if (data.length > 0) {
+      setUsers(prev => [...prev, ...data]);
+      setPage(next);
+      setHasMore(data.length >= 20);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
+  }, [page]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -161,6 +180,14 @@ export default function UsersClient({
               <UserMobileCard key={u.id} user={u} onClick={() => router.push(`/users/${u.id}`)} />
             ))}
           </div>
+
+          {hasMore && (
+            <div className="px-5 py-3 border-t border-gray-100 text-center">
+              <button onClick={handleLoadMore} disabled={loadingMore} className="btn-secondary text-sm">
+                {loadingMore ? "Loading..." : "Load More"}
+              </button>
+            </div>
+          )}
         </>
       )}
 

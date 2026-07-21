@@ -94,3 +94,31 @@ export async function clearActivityLogs(olderThanDays?: number) {
   revalidatePath('/users');
   return { success: true };
 }
+
+export async function logActivities(entries: ActivityLogParams[]) {
+  try {
+    const session = await getSession();
+    if (!session || entries.length === 0) return;
+
+    const rows = entries.map(params => ({
+      user_id: session.id,
+      user_name: session.full_name || session.username || 'Unknown',
+      user_role: session.role || 'employee',
+      action: params.action,
+      module: params.module,
+      entity_id: params.entity_id ?? null,
+      entity_label: params.entity_label ?? null,
+      details: params.details ?? null,
+      old_value: params.old_value ?? null,
+      new_value: params.new_value ?? null,
+    }));
+
+    const { error } = await supabaseAdmin.from('activity_logs').insert(rows);
+    if (error) {
+      const baseRows = rows.map(({ old_value, new_value, ...rest }) => rest);
+      await supabaseAdmin.from('activity_logs').insert(baseRows);
+    }
+  } catch {
+    // Silent
+  }
+}

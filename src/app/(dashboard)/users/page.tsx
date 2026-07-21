@@ -8,7 +8,7 @@ export default async function UsersPage() {
   if (!session) redirect("/login");
 
   const isAdmin = session.role === "admin";
-  const users = await getUsers();
+  const { data: users, count } = await getUsers({ page: 1, pageSize: 20 });
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -18,7 +18,7 @@ export default async function UsersPage() {
           <p className="page-subtitle">{isAdmin ? "Manage staff access, roles and permissions" : "View users and activity"}</p>
         </div>
       </div>
-      <UsersClient users={users as any} isAdmin={isAdmin} />
+      <UsersClient users={users as any} totalCount={count} isAdmin={isAdmin} />
     </div>
   );
 }

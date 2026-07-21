@@ -70,10 +70,13 @@ export async function getVehicleById(id: string): Promise<Vehicle | null> {
   await requireAuth();
   const { data, error } = await supabaseAdmin
     .from('vehicles')
-    .select('*, supplier:suppliers(id, name, bank, account_number, branch), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
+    .select('*, supplier:suppliers(id, contact_id, bank, account_number, branch, company_id, contact:contacts(name)), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
     .eq('id', id)
     .single();
-  if (error) return null;
+  if (error || !data) return null;
+  if (data.supplier?.contact) {
+    data.supplier.name = data.supplier.contact.name;
+  }
   return data as Vehicle;
 }
 
@@ -424,14 +427,17 @@ export async function deleteVehiclePhoto(photoId: string, storagePath: string, v
 
 // ─── Vehicle Updates ─────────────────────────────────────────────────────
 
-export async function getVehicleUpdates(vehicleId: string) {
+export async function getVehicleUpdates(vehicleId: string, params?: { page?: number; pageSize?: number }) {
   await requireAuth();
+  const page = params?.page ?? 1;
+  const pageSize = params?.pageSize ?? 20;
   const { data } = await supabaseAdmin
     .from('vehicle_updates')
-    .select('*, created_by_user:users(id, full_name)')
+    .select('*, created_by_user:users(id, full_name)', { count: 'exact' })
     .eq('vehicle_id', vehicleId)
     .order('update_date', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range((page - 1) * pageSize, page * pageSize - 1);
   return data ?? [];
 }
 

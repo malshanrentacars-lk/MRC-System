@@ -28,7 +28,7 @@ async function fetchDashboardStats(): Promise<DashboardStats> {
     supabaseAdmin.from('rentals').select('*', { count: 'exact', head: true }).in('status', ['active', 'overdue']).lt('end_date', today),
     supabaseAdmin.from('rentals').select('*', { count: 'exact', head: true }).eq('status', 'returned').eq('end_date', today),
     supabaseAdmin.from('rentals').select('total_amount').gte('created_at', today),
-    supabaseAdmin.from('rentals').select('deposit').in('status', ['active', 'booked']),
+    supabaseAdmin.from('rentals').select('deposit').in('status', ['active', 'booked']).gt('deposit', 0),
   ]);
 
   const todayRevenue = (todayRevenueRes.data ?? []).reduce((sum, r) => sum + (r.total_amount ?? 0), 0);
@@ -126,12 +126,19 @@ async function fetchUpcomingRentals() {
 
   const { data } = await supabaseAdmin
     .from('rentals')
-    .select('id, rental_number, start_date, end_date, status, customers(name), vehicles(reg_number, brand, model)')
+    .select('id, rental_number, start_date, end_date, status, customers!inner(id, contact_id, contact:contacts(name)), vehicles(reg_number, brand, model)')
     .in('status', ['active', 'booked'])
     .lte('end_date', in7days)
     .order('end_date', { ascending: true });
 
-  return data ?? [];
+  return (data ?? []).map(r => ({
+    ...r,
+    customers: (() => {
+      const c = r.customers as { contact?: { name?: string } } | Array<{ contact?: { name?: string } }> | null;
+      if (Array.isArray(c)) return c.map(cc => ({ name: cc?.contact?.name ?? 'Unknown' }));
+      return { name: c?.contact?.name ?? 'Unknown' };
+    })(),
+  }));
 }
 
 const cachedUpcomingRentals = unstable_cache(
@@ -148,16 +155,32 @@ export async function getUpcomingRentals() {
 async function fetchCalendarEvents() {
   const { data: rentals } = await supabaseAdmin
     .from('rentals')
-    .select('id, rental_number, start_date, end_date, status, customers(name), vehicles(reg_number)')
+    .select('id, rental_number, start_date, end_date, status, customers!inner(id, contact_id, contact:contacts(name)), vehicles(reg_number)')
     .in('status', ['active', 'booked'])
-    .order('start_date', { ascending: true });
+    .order('start_date', { ascending: true })
+    .limit(200);
 
   const { data: vehicles } = await supabaseAdmin
     .from('vehicles')
     .select('id, reg_number, brand, model, next_service_date, next_service_km, current_km, status')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .limit(200);
 
-  return { rentals: rentals ?? [], vehicles: vehicles ?? [] };
+  const flatRentals = (rentals ?? []).map(r => ({
+    id: r.id,
+    rental_number: r.rental_number,
+    start_date: r.start_date,
+    end_date: r.end_date,
+    status: r.status,
+    customers: (() => {
+      const c = r.customers as { contact?: { name?: string } } | Array<{ contact?: { name?: string } }> | null;
+      if (Array.isArray(c)) return c.map(cc => ({ name: cc?.contact?.name ?? 'Unknown' }));
+      return { name: c?.contact?.name ?? 'Unknown' };
+    })(),
+    vehicles: r.vehicles as unknown,
+  }));
+
+  return { rentals: flatRentals, vehicles: vehicles ?? [] };
 }
 
 const cachedCalendarEvents = unstable_cache(

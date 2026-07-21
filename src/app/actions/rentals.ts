@@ -5,7 +5,7 @@ import { unstable_cache } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth';
 import { deleteOldStorageFile, uploadAsset } from '@/app/actions/upload';
-import { logActivity } from '@/app/actions/activity';
+import { logActivity, logActivities } from '@/app/actions/activity';
 import { Rental } from '@/types';
 import { DASHBOARD_TAG, VEHICLES_TAG, RENTALS_TAG } from '@/lib/cache-tags';
 
@@ -99,8 +99,8 @@ async function _fetchRentals(params?: {
     .select(
       `*, 
       vehicle:vehicles(id, reg_number, brand, model, type),
-      customer:customers(id, name, phone),
-      guarantor:guarantors(id, name, phone)`,
+      customer:customers(id, contact_id, contact:contacts(name, phone)),
+      guarantor:guarantors(id, contact_id, contact:contacts(name, phone))`,
       { count: 'exact' }
     )
     .order('created_at', { ascending: false });
@@ -126,7 +126,13 @@ async function _fetchRentals(params?: {
   const { data, error, count } = await query;
   if (error) throw new Error(error.message);
 
-  return { data: (data ?? []) as Rental[], count: count ?? 0 };
+  const flattened = (data ?? []).map(row => ({
+    ...row,
+    customer: row.customer ? { id: row.customer.id, contact_id: row.customer.contact_id, name: row.customer.contact?.name, phone: row.customer.contact?.phone } : null,
+    guarantor: row.guarantor ? { id: row.guarantor.id, contact_id: row.guarantor.contact_id, name: row.guarantor.contact?.name, phone: row.guarantor.contact?.phone } : null,
+  }));
+
+  return { data: flattened as Rental[], count: count ?? 0 };
 }
 
 const _cachedGetRentals = unstable_cache(
@@ -154,9 +160,9 @@ export async function getRentals(params?: {
 async function _fetchRentalById(id: string): Promise<Rental | null> {
   const baseQuery = `
       *,
-      vehicle:vehicles(*, supplier:suppliers(id, name)),
-      customer:customers(*),
-      guarantor:guarantors(*),
+      vehicle:vehicles(*, supplier:suppliers(id, contact_id, contact:contacts(name))),
+      customer:customers(*, contact:contacts(*)),
+      guarantor:guarantors(*, contact:contacts(*)),
       exchanges:vehicle_exchanges(*, old_vehicle:vehicles!vehicle_exchanges_old_vehicle_id_fkey(id, reg_number, brand, model), new_vehicle:vehicles!vehicle_exchanges_new_vehicle_id_fkey(id, reg_number, brand, model))
     `;
 
@@ -170,13 +176,16 @@ async function _fetchRentalById(id: string): Promise<Rental | null> {
     return null;
   }
 
-  if (!data.signed_agreement_url || !data.signed_agreement_path) {
-    const fromNotes = extractSignedAgreementFromNotes(data.notes);
-    if (fromNotes) {
-      data.signed_agreement_url = fromNotes.url;
-      data.signed_agreement_path = fromNotes.path;
-    }
+  if (data.customer && data.customer.contact) {
+    data.customer = { ...data.customer, ...data.customer.contact };
   }
+  if (data.guarantor && data.guarantor.contact) {
+    data.guarantor = { ...data.guarantor, ...data.guarantor.contact };
+  }
+  if (data.vehicle?.supplier?.contact) {
+    data.vehicle.supplier.name = data.vehicle.supplier.contact.name;
+  }
+
   return data as Rental;
 }
 
@@ -777,9 +786,10 @@ export async function restoreRentals(ids: string[]) {
   revalidateTag(DASHBOARD_TAG);
   revalidateTag(VEHICLES_TAG);
 
-  for (const id of ids) {
-    await logActivity({ action: 'updated', module: 'Rentals', entity_id: id, entity_label: id, details: 'Rental restored' });
-  }
+  await logActivities(ids.map(id => ({
+    action: 'updated' as const, module: 'Rentals' as const,
+    entity_id: id, entity_label: id, details: 'Rental restored',
+  })));
 
   return { success: true };
 }
@@ -805,9 +815,10 @@ export async function destroyRentals(ids: string[]) {
   revalidateTag(RENTALS_TAG);
   revalidateTag(DASHBOARD_TAG);
 
-  for (const id of ids) {
-    await logActivity({ action: 'deleted', module: 'Rentals', entity_id: id, entity_label: id });
-  }
+  await logActivities(ids.map(id => ({
+    action: 'deleted' as const, module: 'Rentals' as const,
+    entity_id: id, entity_label: id,
+  })));
 
   return { success: true };
 }

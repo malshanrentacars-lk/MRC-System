@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import DeletedRentalsClient from "@/app/(dashboard)/rentals/DeletedRentalsClient";
 
 export default async function DeletedRentalsPage() {
-  const { data: rentals, count } = await getRentals({ status: 'cancelled', page: 1, pageSize: 200 });
+  const { data: rentals, count } = await getRentals({ status: 'cancelled', page: 1, pageSize: 500 });
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">

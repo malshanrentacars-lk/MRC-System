@@ -220,7 +220,10 @@ function formatDiffValue(key: string, value: unknown): string {
 
 function VehicleUpdatesTab({ vehicleId, currentKm, vehicleStatus }: { vehicleId: string; currentKm: number; vehicleStatus: string }) {
   const [updates, setUpdates] = useState<any[]>([]);
+  const [updatesPage, setUpdatesPage] = useState(1);
+  const [hasMoreUpdates, setHasMoreUpdates] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [updateType, setUpdateType] = useState('general');
@@ -242,11 +245,26 @@ function VehicleUpdatesTab({ vehicleId, currentKm, vehicleStatus }: { vehicleId:
   })();
 
   useEffect(() => {
-    getVehicleUpdates(vehicleId).then(data => {
+    getVehicleUpdates(vehicleId, { page: 1, pageSize: 20 }).then(data => {
       setUpdates(data);
+      setHasMoreUpdates(data.length >= 20);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [vehicleId]);
+
+  async function loadMoreUpdates() {
+    setLoadingMore(true);
+    const next = updatesPage + 1;
+    const data = await getVehicleUpdates(vehicleId, { page: next, pageSize: 20 });
+    if (data.length > 0) {
+      setUpdates(prev => [...prev, ...data]);
+      setUpdatesPage(next);
+      setHasMoreUpdates(data.length >= 20);
+    } else {
+      setHasMoreUpdates(false);
+    }
+    setLoadingMore(false);
+  }
 
   function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -446,6 +464,13 @@ function VehicleUpdatesTab({ vehicleId, currentKm, vehicleStatus }: { vehicleId:
               </div>
             );
           })}
+          {hasMoreUpdates && (
+            <div className="text-center pt-2">
+              <button onClick={loadMoreUpdates} disabled={loadingMore} className="btn-ghost text-sm">
+                {loadingMore ? "Loading..." : `Load More Updates`}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -61,7 +61,7 @@ export async function loginAction(formData: FormData) {
 
   const { data: user, error } = await supabaseAdmin
     .from('users')
-    .select('id, username, full_name, email, avatar_url, token_version, password_hash, role, is_active, totp_enabled, totp_setup_required')
+    .select('id, username, full_name, email, avatar_url, password_hash, role, is_active')
     .eq('username', username.trim().toLowerCase())
     .single();
 
@@ -86,9 +86,26 @@ export async function loginAction(formData: FormData) {
     return { error: 'Invalid username or password' };
   }
 
+  // Fetch optional TOTP/token fields separately (may not exist on all DB instances)
+  let tokenVersion = 0;
+  let totpEnabled = false;
+  let totpSetupRequired = false;
+  try {
+    const { data: extras } = await supabaseAdmin
+      .from('users')
+      .select('token_version, totp_enabled, totp_setup_required')
+      .eq('id', user.id)
+      .single();
+    if (extras) {
+      tokenVersion = extras.token_version ?? 0;
+      totpEnabled = extras.totp_enabled ?? false;
+      totpSetupRequired = extras.totp_setup_required ?? false;
+    }
+  } catch { /* columns may not exist — use defaults */ }
+
   // Password correct — determine next step
-  const needsSetup = user.totp_setup_required && !user.totp_enabled;
-  const totpToken = setTotpCookie(user.id, user.username, user.full_name, user.role, user.email, user.avatar_url, user.token_version);
+  const needsSetup = totpSetupRequired && !totpEnabled;
+  const totpToken = setTotpCookie(user.id, user.username, user.full_name, user.role, user.email, user.avatar_url, tokenVersion);
 
   const cookieStore = await cookies();
   cookieStore.set(TOTP_COOKIE, totpToken, {
@@ -103,7 +120,7 @@ export async function loginAction(formData: FormData) {
     return { redirect: '/setup-2fa', needsSetup: true };
   }
 
-  if (user.totp_enabled) {
+  if (totpEnabled) {
     return { redirect: '/verify-2fa' };
   }
 

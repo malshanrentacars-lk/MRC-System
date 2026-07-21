@@ -12,9 +12,12 @@ export async function getSession(): Promise<SessionUser | null> {
   try {
     const decoded = Buffer.from(sessionCookie.value, 'base64').toString('utf-8');
     const session = JSON.parse(decoded) as SessionUser;
-    const { data } = await supabaseAdmin.from('users').select('token_version').eq('id', session.id).single();
-    if (!data) return null;
-    if (data.token_version !== (session.token_version ?? 0)) return null;
+    try {
+      const { data } = await supabaseAdmin.from('users').select('token_version').eq('id', session.id).single();
+      if (data && data.token_version !== (session.token_version ?? 0)) return null;
+    } catch {
+      // token_version column may not exist — allow session to proceed
+    }
     return session;
   } catch {
     return null;

@@ -55,5 +55,4 @@ CREATE INDEX IF NOT EXISTS idx_customers_contact_id ON customers(contact_id);
 CREATE INDEX IF NOT EXISTS idx_guarantors_contact_id ON guarantors(contact_id);
 CREATE INDEX IF NOT EXISTS idx_suppliers_contact_id ON suppliers(contact_id);
 
--- WhatsApp message logs: created_at for pruning/querying
-CREATE INDEX IF NOT EXISTS idx_whatsapp_message_logs_created_at ON whatsapp_message_logs(created_at DESC);
+-- (WhatsApp message logs index skipped — table not deployed on this instance)

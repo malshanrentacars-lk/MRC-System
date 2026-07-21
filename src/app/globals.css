@@ -2,56 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 :root {
-  --brand-light-bg: #FAFAFA;
-  --brand-light-card: #FFFFFF;
-  --brand-light-border: #F3F4F6;
-  --brand-primary: #DC2626;
+  --brand-light-bg: 0 0% 98%;
+  --brand-light-card: 0 0% 100%;
+  --brand-light-border: 220 14% 96%;
+  --brand-primary: 0 72% 51%;
 
   --background: var(--brand-light-bg);
-  --foreground: #111827;
+  --foreground: 222 47% 11%;
   --card: var(--brand-light-card);
-  --card-foreground: #111827;
+  --card-foreground: 222 47% 11%;
   --popover: var(--brand-light-card);
-  --popover-foreground: #111827;
+  --popover-foreground: 222 47% 11%;
   --primary: var(--brand-primary);
-  --primary-foreground: #ffffff;
+  --primary-foreground: 0 0% 100%;
   --secondary: var(--brand-light-bg);
-  --secondary-foreground: #111827;
+  --secondary-foreground: 222 47% 11%;
   --muted: var(--brand-light-bg);
-  --muted-foreground: #6b7280;
+  --muted-foreground: 220 9% 46%;
   --accent: var(--brand-primary);
-  --accent-foreground: #ffffff;
+  --accent-foreground: 0 0% 100%;
   --destructive: var(--brand-primary);
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: 0 0% 100%;
   --border: var(--brand-light-border);
-  --input: #ffffff;
-  --ring: var(--brand-primary-hover);
+  --input: 0 0% 100%;
+  --ring: var(--brand-primary);
   --radius: 0.5rem;
 }
 
 /* Dark theme variables */
 .dark {
-  --brand-dark-bg: #1A0A0A;
-  --brand-dark-card: #261414;
-  --brand-dark-border: #3D2020;
-  --brand-primary-dark: #EF4444;
+  --brand-dark-bg: 0 75% 7%;
+  --brand-dark-card: 0 31% 11%;
+  --brand-dark-border: 0 31% 18%;
+  --brand-primary-dark: 0 84% 60%;
 
   --background: var(--brand-dark-bg);
-  --foreground: #ffffff;
+  --foreground: 0 0% 100%;
   --card: var(--brand-dark-card);
-  --card-foreground: #ffffff;
+  --card-foreground: 0 0% 100%;
   --popover: var(--brand-dark-card);
-  --popover-foreground: #ffffff;
+  --popover-foreground: 0 0% 100%;
   --primary: var(--brand-primary-dark);
-  --primary-foreground: #ffffff;
+  --primary-foreground: 0 0% 100%;
   --secondary: var(--brand-dark-bg);
-  --secondary-foreground: #ffffff;
+  --secondary-foreground: 0 0% 100%;
   --muted: var(--brand-dark-bg);
-  --muted-foreground: #94a3b8;
+  --muted-foreground: 213 27% 72%;
   --accent: var(--brand-primary-dark);
-  --accent-foreground: #ffffff;
+  --accent-foreground: 0 0% 100%;
   --destructive: var(--brand-primary-dark);
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: 0 0% 100%;
   --border: var(--brand-dark-border);
   --input: var(--brand-dark-card);
   --ring: var(--brand-primary-dark);
@@ -231,4 +231,3 @@
   body { background: white; }
   nav, aside, .print\:hidden { display: none !important; }
 }
-

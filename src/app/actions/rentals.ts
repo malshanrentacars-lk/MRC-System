@@ -204,12 +204,46 @@ export async function checkVehicleOverlap(
     .select('id')
     .eq('vehicle_id', vehicleId)
     .in('status', ['active', 'booked'])
-    .or(`start_date.lte.${endDate},end_date.gte.${startDate}`);
+    .lte('start_date', endDate)
+    .gte('end_date', startDate);
 
   if (excludeRentalId) query = query.neq('id', excludeRentalId);
 
   const { data } = await query;
   return (data?.length ?? 0) > 0;
+}
+
+export async function getVehicleBookedRanges(vehicleId: string): Promise<{ start_date: string; end_date: string; status: string }[]> {
+  await requireAuth();
+  const { data: rentals } = await supabaseAdmin
+    .from('rentals')
+    .select('start_date, end_date, status')
+    .eq('vehicle_id', vehicleId)
+    .in('status', ['active', 'booked'])
+    .order('start_date', { ascending: true });
+
+  return (rentals ?? []) as { start_date: string; end_date: string; status: string }[];
+}
+
+export async function getBookedDates(vehicleId: string): Promise<Date[]> {
+  await requireAuth();
+  const { data: rentals } = await supabaseAdmin
+    .from('rentals')
+    .select('start_date, end_date')
+    .eq('vehicle_id', vehicleId)
+    .in('status', ['active', 'booked']);
+
+  if (!rentals?.length) return [];
+
+  const booked: Date[] = [];
+  for (const r of rentals as { start_date: string; end_date: string }[]) {
+    const start = new Date(r.start_date + 'T12:00:00');
+    const end = new Date(r.end_date + 'T12:00:00');
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      booked.push(new Date(d));
+    }
+  }
+  return booked;
 }
 
 export async function createRental(data: {
@@ -240,6 +274,8 @@ export async function createRental(data: {
   // Check overlap
   const overlaps = await checkVehicleOverlap(data.vehicle_id, data.start_date, data.end_date);
   if (overlaps) return { error: 'Vehicle is already booked for the selected dates.' };
+
+  if (!data.guarantor_id) return { error: 'Guarantor is required.' };
 
   const rateType = data.rate_type ?? 'daily';
   const appliedRate = Number(data.applied_rate ?? data.daily_rate ?? 0);

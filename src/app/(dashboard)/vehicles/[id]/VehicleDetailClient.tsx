@@ -14,8 +14,9 @@ import {
   Edit, Trash2, Upload, X, Plus, Minus, Camera, Pencil, Check,
   Car, Shield, DollarSign, TrendingUp, Image as ImageIcon, ClipboardList, ChevronDown, Package, ExternalLink, History
 } from "lucide-react";
-import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES, calcTiersFromMonthly } from "@/lib/vehicleData";
+import { BRANDS, COLORS, YEARS, getModels, FUEL_TYPES, TRANSMISSION_TYPES, calcTiersFromMonthly, TIER_LABELS } from "@/lib/vehicleData";
 import FileUploader, { UploadedFile } from "@/components/shared/FileUploader";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 
 interface Props {
   vehicle: Vehicle;
@@ -30,10 +31,10 @@ function getFilename(url: string): string {
 
 // Default 4 rate tiers
 const DEFAULT_TIERS = [
-  { id: "", vehicle_id: "", days_from: 1, days_to: 3, rate_per_day: 0 },
-  { id: "", vehicle_id: "", days_from: 4, days_to: 7, rate_per_day: 0 },
+  { id: "", vehicle_id: "", days_from: 1, days_to: 7, rate_per_day: 0 },
   { id: "", vehicle_id: "", days_from: 8, days_to: 14, rate_per_day: 0 },
-  { id: "", vehicle_id: "", days_from: 15, days_to: undefined, rate_per_day: 0 },
+  { id: "", vehicle_id: "", days_from: 15, days_to: 21, rate_per_day: 0 },
+  { id: "", vehicle_id: "", days_from: 22, days_to: 30, rate_per_day: 0 },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -184,12 +185,61 @@ function FinancialsTab({
 }
 
 // ─── Vehicle Updates Tab ──────────────────────────────────────────────────
-function VehicleUpdatesTab({ vehicleId }: { vehicleId: string }) {
+const UPDATE_TYPES = [
+  { value: 'general', label: 'General', icon: '📋', color: 'bg-gray-500' },
+  { value: 'service', label: 'Service', icon: '🔧', color: 'bg-blue-500' },
+  { value: 'insurance', label: 'Insurance', icon: '🛡️', color: 'bg-green-500' },
+  { value: 'revenue_license', label: 'Revenue License', icon: '📄', color: 'bg-amber-500' },
+  { value: 'eco_test', label: 'Eco Test', icon: '🌿', color: 'bg-emerald-500' },
+] as const;
+
+const DIFF_FIELD_LABELS: Record<string, string> = {
+  current_km: 'Odometer',
+  status: 'Status',
+  last_service_date: 'Last Service Date',
+  last_service_km: 'Last Service KM',
+  next_service_date: 'Next Service Date',
+  next_service_km: 'Next Service KM',
+  insurance_expiry: 'Insurance Expiry',
+  revenue_license_expiry: 'Revenue License Expiry',
+  eco_test_expiry: 'Eco Test Expiry',
+  insurance_url: 'Insurance Doc',
+  revenue_license_url: 'Revenue License Doc',
+  eco_test_url: 'Eco Test Doc',
+};
+
+function formatDiffValue(key: string, value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (key.endsWith('_url')) return value as string;
+  if (key === 'current_km' || key === 'next_service_km') return `${(value as number).toLocaleString()} km`;
+  if (key.endsWith('_date') || key === 'insurance_expiry' || key === 'revenue_license_expiry' || key === 'eco_test_expiry') {
+    return formatDate(value as string);
+  }
+  return String(value);
+}
+
+function VehicleUpdatesTab({ vehicleId, currentKm, vehicleStatus }: { vehicleId: string; currentKm: number; vehicleStatus: string }) {
   const [updates, setUpdates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [updateType, setUpdateType] = useState('general');
+  const [confirmUpdate, setConfirmUpdate] = useState(false);
+  const [pendingUpdateFd, setPendingUpdateFd] = useState<FormData | null>(null);
   const today = new Date().toISOString().split('T')[0];
+
+  // Service auto-calc
+  const [serviceInterval, setServiceInterval] = useState('5000');
+  const [serviceDate, setServiceDate] = useState(today);
+  const [serviceKm, setServiceKm] = useState('');
+  const autoNextKm = serviceKm && serviceInterval ? parseInt(serviceKm) + parseInt(serviceInterval) : null;
+  const autoNextDate = (() => {
+    if (!serviceDate || !serviceInterval) return null;
+    const d = new Date(serviceDate + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + Math.round(parseInt(serviceInterval) / 100));
+    return d.toISOString().split('T')[0];
+  })();
 
   useEffect(() => {
     getVehicleUpdates(vehicleId).then(data => {
@@ -201,35 +251,140 @@ function VehicleUpdatesTab({ vehicleId }: { vehicleId: string }) {
   function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    fd.set('update_type', updateType);
+    setPendingUpdateFd(fd);
     setError(null);
+    setConfirmUpdate(true);
+  }
+
+  async function performUpdate() {
+    if (!pendingUpdateFd) return;
     startTransition(async () => {
-      const result = await addVehicleUpdate(vehicleId, fd);
-      if ("error" in result && result.error) { setError(result.error); return; }
-      e.currentTarget.reset();
+      const result = await addVehicleUpdate(vehicleId, pendingUpdateFd);
+      if ("error" in result && result.error) { setError(result.error); setConfirmUpdate(false); return; }
+      setConfirmUpdate(false);
+      setPendingUpdateFd(null);
       setUpdates(prev => [result.data, ...prev]);
     });
   }
 
+  const typeInfo = UPDATE_TYPES.find(t => t.value === updateType);
+  const readonlyStatuses = ['rented', 'booked'];
+  const isStatusLocked = readonlyStatuses.includes(vehicleStatus);
+
   return (
+    <>
     <div className="p-5 space-y-6">
       {/* Add Update Form */}
       <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Log an Update</p>
-        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          <div>
-            <label className="form-label text-[10px]">Date</label>
-            <input name="update_date" type="date" defaultValue={today} className="form-input text-sm" />
+        <form onSubmit={handleAdd} className="space-y-3">
+          {/* Update Type */}
+          <div className="flex flex-wrap gap-2">
+            {UPDATE_TYPES.map(t => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setUpdateType(t.value)}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  updateType === t.value
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <span>{t.icon}</span> {t.label}
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="form-label text-[10px]">Current KM</label>
-            <input name="current_km" type="number" placeholder="e.g. 50000" className="form-input text-sm" />
+
+          {/* Common fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="form-label text-[10px]">Date <span className="text-red-500">*</span></label>
+              <input name="update_date" type="date" required defaultValue={today} max={today} onChange={e => setServiceDate(e.target.value)} className="form-input text-sm" />
+            </div>
+            <div>
+              <label className="form-label text-[10px]">Current KM <span className="text-red-500">*</span></label>
+              <input name="current_km" type="number" required defaultValue={currentKm || ""} min={currentKm || 0} placeholder={`Min: ${(currentKm || 0).toLocaleString()} km`} onChange={e => setServiceKm(e.target.value)} className="form-input text-sm" />
+            </div>
           </div>
-          <div className="md:col-span-1">
-            <label className="form-label text-[10px]">Description <span className="text-red-500">*</span></label>
-            <input name="description" required placeholder="e.g. Oil change, new tires" className="form-input text-sm" />
-          </div>
-          <div>
-            <button type="submit" disabled={isPending} className="btn-primary text-sm w-full">
+
+          {/* Conditional: Service */}
+          {updateType === 'service' && (
+            <>
+              <div className="pt-1 border-t border-blue-200">
+                <label className="form-label text-[10px]">Description</label>
+                <input name="description" placeholder="e.g. Full service completed, oil change" className="form-input text-sm" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label text-[10px]">Service Interval</label>
+                  <select className="form-select text-sm" value={serviceInterval} onChange={e => setServiceInterval(e.target.value)}>
+                    <option value="3000">3,000 KM</option>
+                    <option value="5000">5,000 KM</option>
+                    <option value="7000">7,000 KM</option>
+                    <option value="10000">10,000 KM</option>
+                  </select>
+                  <input type="hidden" name="service_interval" value={serviceInterval} />
+                </div>
+                <div>
+                  <label className="form-label text-[10px]">Next Service KM</label>
+                  <input type="text" readOnly value={autoNextKm != null ? autoNextKm.toLocaleString() : '—'} className="form-input text-sm bg-gray-50 text-gray-500 cursor-not-allowed" />
+                </div>
+              </div>
+              <div>
+                <label className="form-label text-[10px]">Next Service Date</label>
+                <input type="text" readOnly value={autoNextDate || '—'} className="form-input text-sm bg-gray-50 text-gray-500 cursor-not-allowed" />
+              </div>
+            </>
+          )}
+
+          {/* Conditional: Insurance / Revenue License / Eco Test */}
+          {(updateType === 'insurance' || updateType === 'revenue_license' || updateType === 'eco_test') && (
+            <div className="space-y-3 pt-1 border-t border-blue-200">
+              <div>
+                <label className="form-label text-[10px]">New Expiry Date <span className="text-red-500">*</span></label>
+                <input name="expiry_date" type="date" required className="form-input text-sm w-48" />
+              </div>
+              <div>
+                <label className="form-label text-[10px]">Upload New Document <span className="text-red-500">*</span></label>
+                <FileUploader
+                  label="JPG/PDF, max 5MB"
+                  fieldName="doc"
+                  bucket="vehicle-documents"
+                  folder={`vehicles/${vehicleId}/${updateType}`}
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  multiple={false}
+                  maxFiles={1}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Conditional: General */}
+          {updateType === 'general' && (
+            <div className="space-y-3 pt-1 border-t border-blue-200">
+              <div>
+                <label className="form-label text-[10px]">Note</label>
+                <input name="description" placeholder="e.g. Vehicle cleaned, new floor mats" className="form-input text-sm" />
+              </div>
+              <div>
+                <label className="form-label text-[10px]">Change Status</label>
+                {isStatusLocked ? (
+                  <input type="text" readOnly value={vehicleStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} className="form-input text-sm bg-gray-50 text-gray-500 cursor-not-allowed" />
+                ) : (
+                  <select name="vehicle_status" className="form-select text-sm" defaultValue={vehicleStatus}>
+                    <option value="available">Available</option>
+                    <option value="in_garage">In Garage</option>
+                    <option value="owner_returned">Owner Returned</option>
+                  </select>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button type="submit" disabled={isPending} className="btn-primary text-sm">
               {isPending ? "Saving..." : "Add Update"}
             </button>
           </div>
@@ -248,27 +403,55 @@ function VehicleUpdatesTab({ vehicleId }: { vehicleId: string }) {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-gray-400">{updates.length} update{updates.length !== 1 ? 's' : ''}</p>
-          {updates.map((u: any, i: number) => (
-            <div key={u.id} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                {i < updates.length - 1 && <div className="w-0.5 flex-1 bg-blue-200 my-1" />}
-              </div>
-              <div className="flex-1 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium text-gray-900">{u.description}</p>
-                  <span className="text-xs text-gray-400">{formatDate(u.update_date)}</span>
+          {updates.map((u: any, i: number) => {
+            const ut = UPDATE_TYPES.find(t => t.value === u.update_type) || UPDATE_TYPES[0];
+            return (
+              <div key={u.id} className="flex gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-3 h-3 rounded-full ${ut.color} mt-1.5 flex-shrink-0`} title={ut.label} />
+                  {i < updates.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 my-1" />}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500">
-                  {u.current_km != null && <span>{u.current_km.toLocaleString()} km</span>}
-                  {u.created_by_user && <span>by {u.created_by_user.full_name}</span>}
+                <div className="flex-1 bg-gray-50 rounded-lg p-4 border border-gray-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-white border border-gray-200">{ut.icon} {ut.label}</span>
+                      <p className="text-sm font-medium text-gray-900">{u.description}</p>
+                    </div>
+                    <span className="text-xs text-gray-400">{formatDate(u.update_date)}</span>
+                  </div>
+
+                  {/* Diff fields */}
+                  {u.old_data && u.new_data && (
+                    <div className="mt-2 space-y-0.5">
+                      {Object.keys(u.old_data).map((key: string) => {
+                        const oldVal = formatDiffValue(key, u.old_data[key]);
+                        const newVal = formatDiffValue(key, u.new_data[key]);
+                        return (
+                          <div key={key} className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500 font-medium min-w-[120px]">{DIFF_FIELD_LABELS[key] || key}:</span>
+                            <span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded line-through">{oldVal}</span>
+                            <span className="text-gray-300">→</span>
+                            <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium">{newVal}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+                    {u.current_km != null && !u.old_data && <span>Odometer: {u.current_km.toLocaleString()} km</span>}
+                    {u.created_by_user && <span>by {u.created_by_user.full_name}</span>}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
+
+    <PasswordConfirmModal open={confirmUpdate} onOpenChange={setConfirmUpdate} title="Log Update" description="Please verify your password to save this update." onConfirm={performUpdate} />
+    </>
   );
 }
 
@@ -282,6 +465,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmEdit, setConfirmEdit] = useState(false);
   const [editFormData, setEditFormData] = useState<FormData | null>(null);
+  const [docViewer, setDocViewer] = useState<{ open: boolean; url: string; title: string }>({ open: false, url: '', title: '' });
   
   // Rate tiers: if existing tiers exist use them (up to 4), else show 4 defaults
   const initTiers = vehicle.rate_tiers && vehicle.rate_tiers.length > 0
@@ -289,6 +473,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
     : DEFAULT_TIERS.map(t => ({ ...t, vehicle_id: vehicle.id }));
   const [rateTiers, setRateTiers] = useState(initTiers);
   const [editMonthlyRate, setEditMonthlyRate] = useState<number | string>(vehicle.daily_rate * 30 || "");
+
+  useEffect(() => {
+    setVehicle(initial);
+    setLocalPhotos(initial.photos ?? []);
+  }, [initial]);
 
   function handleMonthlyRateChange(val: string) {
     setEditMonthlyRate(val);
@@ -312,12 +501,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
   const [editPayDay1, setEditPayDay1] = useState(payDayValues[0] ? parseInt(payDayValues[0]) : 30);
   const [editPayDay2, setEditPayDay2] = useState(payDayValues[1] ? parseInt(payDayValues[1]) : 15);
   const [editPayDaysLocked, setEditPayDaysLocked] = useState(true);
-  const [editInterval, setEditInterval] = useState("5000");
-  const [editCurrentKm, setEditCurrentKm] = useState(vehicle.current_km || 0);
-  const [editLastServiceKm, setEditLastServiceKm] = useState(vehicle.last_service_km || 0);
-  const [editNextServiceKm, setEditNextServiceKm] = useState(vehicle.next_service_km || 5000);
-  const [editLastServiceDate, setEditLastServiceDate] = useState(vehicle.last_service_date || "");
-  const [editNextServiceDate, setEditNextServiceDate] = useState(vehicle.next_service_date || "");
   const [editAgreementPeriod, setEditAgreementPeriod] = useState(vehicle.agreement_period || "");
   const [editAgreementStartDate, setEditAgreementStartDate] = useState(vehicle.agreement_start_date || "");
   const [editRenewDate, setEditRenewDate] = useState(vehicle.renew_date || "");
@@ -338,30 +521,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
   function handleEditAgreementPeriodChange(period: string) {
     setEditAgreementPeriod(period);
     setEditRenewDate(calcEditRenewDate(editAgreementStartDate, period));
-  }
-
-  function calcEditNextServiceDate(lastDate: string, interval: string) {
-    if (!lastDate || !interval) return "";
-    const date = new Date(lastDate + "T00:00:00");
-    if (isNaN(date.getTime())) return "";
-    date.setDate(date.getDate() + parseInt(interval) / 100);
-    return date.toISOString().split("T")[0];
-  }
-
-  function handleEditLastServiceKmChange(km: number) {
-    setEditLastServiceKm(km);
-    setEditNextServiceKm(km + parseInt(editInterval));
-  }
-
-  function handleEditLastServiceDateChange(date: string) {
-    setEditLastServiceDate(date);
-    setEditNextServiceDate(calcEditNextServiceDate(date, editInterval));
-  }
-
-  function handleEditIntervalChange(interval: string) {
-    setEditInterval(interval);
-    setEditNextServiceKm(editLastServiceKm + parseInt(interval));
-    setEditNextServiceDate(calcEditNextServiceDate(editLastServiceDate, interval));
   }
 
   function calcPayDays(freq: string): string {
@@ -391,35 +550,29 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
   function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-
-    const revLic = (fd.get("revenue_license_url") as string) || "";
-    const insurance = (fd.get("insurance_url") as string) || "";
-    if (!revLic || !insurance) {
-      setError("Please upload Revenue License and Insurance.");
-      return;
-    }
-    const ecoTest = (fd.get("eco_test_url") as string) || "";
-    const ecoTestExpiry = (fd.get("eco_test_expiry") as string) || "";
-    if ((editFuelType === "Petrol" || editFuelType === "Diesel") && (!ecoTest || !ecoTestExpiry)) {
-      setError("Please upload Eco Test document and set Eco Test Expiry (required for Petrol/Diesel vehicles).");
-      return;
-    }
-
-    setError(null);
     fd.set("brand", editBrand);
     fd.set("model", editModel);
     fd.set("daily_rate", rateTiers.length > 0 ? rateTiers[0].rate_per_day.toString() : "0");
     fd.set("rate_tiers", JSON.stringify(rateTiers.map(t => ({ days_from: t.days_from, days_to: t.days_to, rate_per_day: t.rate_per_day }))));
+    setEditFormData(fd);
+    setError(null);
+    setConfirmEdit(true);
+  }
+
+  async function performEdit() {
+    if (!editFormData) return;
     startTransition(async () => {
-      const result = await updateVehicle(vehicle.id, fd);
-      if (result.error) { setError(result.error); return; }
+      const result = await updateVehicle(vehicle.id, editFormData);
+      if (result.error) { setError(result.error); setConfirmEdit(false); return; }
+      setConfirmEdit(false);
       setEditing(false);
+      setEditFormData(null);
       router.push(`/vehicles/${vehicle.id}`);
       router.refresh();
     });
   }
 
-  async function performDelete() {
+  function performDelete() {
     startTransition(async () => {
       await deleteVehicle(vehicle.id);
       router.push("/vehicles");
@@ -518,15 +671,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   </select>
                 </div>
                 )}
-                <div>
-                  <label className="form-label text-sm">Current KM <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="current_km" type="number" required defaultValue={(vehicle.current_km || "").toString()} onChange={e => setEditCurrentKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
-                </div>
               </div>
               {editSource === "Supplier" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                   <div>
-                    <label className="form-label text-sm">Monthly Cost (Rs.) <span className="text-red-500 ml-0.5">*</span></label>
+                    <label className="form-label text-sm">Supplier Payment (Rs.) <span className="text-red-500 ml-0.5">*</span></label>
                     <input name="monthly_cost" type="number" min="0" step="0.01" required defaultValue={vehicle.monthly_cost ?? ""} className="form-input text-sm" />
                   </div>
                   <div>
@@ -570,45 +719,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                 <div>
-                  <label className="form-label text-sm">Last Service Date <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="last_service_date" type="date" required value={editLastServiceDate} onChange={e => handleEditLastServiceDateChange(e.target.value)} className="form-input text-sm" />
-                </div>
-                <div>
-                  <label className="form-label text-sm">Last Service KM <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="last_service_km" type="number" required value={editLastServiceKm || ""} onChange={e => handleEditLastServiceKmChange(parseInt(e.target.value) || 0)} className="form-input text-sm" />
-                </div>
-                <div>
-                  <label className="form-label text-sm">Service Interval <span className="text-red-500 ml-0.5">*</span></label>
-                  <select className="form-select text-sm" value={editInterval} onChange={e => handleEditIntervalChange(e.target.value)}>
-                    <option value="3000">3,000 KM</option>
-                    <option value="5000">5,000 KM</option>
-                    <option value="7000">7,000 KM</option>
-                    <option value="10000">10,000 KM</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label text-sm">Next Service KM <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="next_service_km" type="number" required value={editNextServiceKm} onChange={e => setEditNextServiceKm(parseInt(e.target.value) || 0)} className="form-input text-sm" />
-                </div>
-                <div>
-                  <label className="form-label text-sm">Next Service Date <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="next_service_date" type="date" required value={editNextServiceDate} onChange={e => setEditNextServiceDate(e.target.value)} className="form-input text-sm" />
-                </div>
-                <div>
-                  <label className="form-label text-sm">Insurance Expiry <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="insurance_expiry" type="date" required defaultValue={vehicle.insurance_expiry ?? ""} className="form-input text-sm" />
-                </div>
-                <div>
-                  <label className="form-label text-sm">Revenue License Expiry <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="revenue_license_expiry" type="date" required defaultValue={vehicle.revenue_license_expiry ?? ""} className="form-input text-sm" />
-                </div>
-                {(editFuelType === "Petrol" || editFuelType === "Diesel") && (
-                <div>
-                  <label className="form-label text-sm">Eco Test Expiry <span className="text-red-500 ml-0.5">*</span></label>
-                  <input name="eco_test_expiry" type="date" required defaultValue={vehicle.eco_test_expiry ?? ""} className="form-input text-sm" />
-                </div>
-                )}
-                <div>
                   <label className="form-label text-sm">Agreement Start Date <span className="text-red-500 ml-0.5">*</span></label>
                   <input name="agreement_start_date" type="date" required value={editAgreementStartDate} onChange={e => handleEditAgreementStartDateChange(e.target.value)} className="form-input text-sm" />
                 </div>
@@ -645,48 +755,6 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                     multiple={false}
                     maxFiles={1}
                     initialFiles={vehicle.registration_document_url ? [{ url: vehicle.registration_document_url, path: vehicle.registration_document_path || "" }] : []}
-                  />
-                  <FileUploader
-                    label="Revenue License (JPG/PDF, max 5MB) *"
-                    fieldName="revenue_license"
-                    bucket="vehicle-documents"
-                    folder={`${vehicle.reg_number}/revenue_license`}
-                    accept=".jpg,.jpeg,.pdf"
-                    multiple={false}
-                    maxFiles={1}
-                    initialFiles={vehicle.revenue_license_url ? [{ url: vehicle.revenue_license_url, path: vehicle.revenue_license_path || "" }] : []}
-                  />
-                  {(editFuelType === "Petrol" || editFuelType === "Diesel") && (
-                  <FileUploader
-                    label="Eco Test (JPG/PDF, max 5MB) *"
-                    fieldName="eco_test"
-                    bucket="vehicle-documents"
-                    folder={`${vehicle.reg_number}/eco_test`}
-                    accept=".jpg,.jpeg,.pdf"
-                    multiple={false}
-                    maxFiles={1}
-                    initialFiles={vehicle.eco_test_url ? [{ url: vehicle.eco_test_url, path: vehicle.eco_test_path || "" }] : []}
-                  />
-                  )}
-                  <FileUploader
-                    label="Insurance (JPG/PDF, max 5MB) *"
-                    fieldName="insurance"
-                    bucket="vehicle-documents"
-                    folder={`${vehicle.reg_number}/insurance`}
-                    accept=".jpg,.jpeg,.pdf"
-                    multiple={false}
-                    maxFiles={1}
-                    initialFiles={vehicle.insurance_url ? [{ url: vehicle.insurance_url, path: vehicle.insurance_path || "" }] : []}
-                  />
-                  <FileUploader
-                    label="Service Tag (JPG/PDF, max 5MB)"
-                    fieldName="service_tag"
-                    bucket="vehicle-documents"
-                    folder={`${vehicle.reg_number}/service_tag`}
-                    accept=".jpg,.jpeg,.pdf"
-                    multiple={false}
-                    maxFiles={1}
-                    initialFiles={vehicle.service_tag_url ? [{ url: vehicle.service_tag_url, path: vehicle.service_tag_path || "" }] : []}
                   />
                 </div>
               </div>
@@ -732,8 +800,8 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   {rateTiers.map((tier, i) => (
                     <div key={i} className="flex items-center gap-3 bg-white rounded-lg border border-gray-200 px-4 py-3">
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Tier {i + 1}</p>
-                        <p className="text-xs text-gray-400">Days {tier.days_from}{tier.days_to ? `–${tier.days_to}` : "+"}</p>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">{TIER_LABELS[i] || `Tier ${i + 1}`}</p>
+                        <p className="text-xs text-gray-400">{tier.days_from}–{tier.days_to ?? '∞'} days</p>
                       </div>
                       <input
                         type="number"
@@ -777,13 +845,9 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
               <TabsTrigger value="rentals"><ClipboardList className="w-3.5 h-3.5 mr-1.5 inline" />Rentals</TabsTrigger>
               <TabsTrigger value="financials"><TrendingUp className="w-3.5 h-3.5 mr-1.5 inline" />Financials</TabsTrigger>
             </TabsList>
-            <div className="flex gap-2 mb-2">
-              {!editing && (
-                <>
-                  <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><Edit className="w-3.5 h-3.5" /> Edit</button>
-                  <button onClick={() => setConfirmDelete(true)} className="btn-danger text-sm"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
-                </>
-              )}
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><Edit className="w-3.5 h-3.5" /> Edit</button>
+              <button onClick={() => setConfirmDelete(true)} className="btn-danger text-sm"><Trash2 className="w-3.5 h-3.5" /> Delete</button>
             </div>
           </div>
 
@@ -805,11 +869,11 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                   { label: "Fuel Type", value: vehicle.fuel_type ?? "—" },
                   { label: "Transmission", value: vehicle.transmission ?? "—" },
                   { label: "Status", value: <StatusBadge status={vehicle.status} /> },
-                  { label: "Current KM", value: (vehicle.current_km || 0).toLocaleString() + " km" },
+                  { label: "Current KM", value: <span>{(vehicle.current_km || 0).toLocaleString()} km <span className="text-xs text-gray-400">(updated {formatDate(vehicle.updated_at)})</span></span> },
                   { label: "Agreement Start Date", value: formatDate(vehicle.agreement_start_date) },
                   { label: "Agreement Period", value: vehicle.agreement_period ? `${vehicle.agreement_period} Months` : "—" },
                   { label: "Renew Date", value: formatDate(vehicle.renew_date) },
-                  { label: "Daily Rate", value: formatCurrency(vehicle.daily_rate) },
+                  { label: "Monthly Rate", value: (() => { const t4 = vehicle.rate_tiers?.find(t => t.days_from === 22); return formatCurrency(t4 ? t4.rate_per_day * 30 : vehicle.daily_rate * 30); })() },
                   { label: "Next Service KM", value: (vehicle.next_service_km || 0).toLocaleString() + " km" },
                 ].map(f => (
                   <div key={f.label}>
@@ -830,7 +894,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Registration Document</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.registration_document_url)}</p>
                       </div>
-                      <a href={vehicle.registration_document_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.registration_document_url!, title: 'Registration Document' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
@@ -845,7 +909,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Revenue License</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.revenue_license_url)}</p>
                       </div>
-                      <a href={vehicle.revenue_license_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.revenue_license_url!, title: 'Revenue License' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
@@ -860,7 +924,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Eco Test</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.eco_test_url)}</p>
                       </div>
-                      <a href={vehicle.eco_test_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.eco_test_url!, title: 'Eco Test' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
@@ -875,7 +939,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Insurance</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.insurance_url)}</p>
                       </div>
-                      <a href={vehicle.insurance_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.insurance_url!, title: 'Insurance' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
@@ -890,7 +954,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Service Tag</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.service_tag_url)}</p>
                       </div>
-                      <a href={vehicle.service_tag_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.service_tag_url!, title: 'Service Tag' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center bg-gray-50">
@@ -911,7 +975,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
 
           {/* ── UPDATES ── */}
           <TabsContent value="updates" className="mt-0">
-            <VehicleUpdatesTab vehicleId={vehicle.id} />
+            <VehicleUpdatesTab vehicleId={vehicle.id} currentKm={vehicle.current_km || 0} vehicleStatus={vehicle.status} />
           </TabsContent>
 
           {/* ── SUPPLIER ── */}
@@ -929,7 +993,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">Name</p>
-                    <p className="text-sm font-medium text-gray-900">{vehicle.supplier.name}</p>
+                    <Link href={`/suppliers/${vehicle.supplier.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline">{vehicle.supplier.name}</Link>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400 mb-0.5">Phone</p>
@@ -981,7 +1045,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Payment Schedule</p>
                     <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Monthly Cost</span>
+                        <span className="text-xs text-gray-500">Supplier Payment</span>
                         <span className="text-sm font-bold text-gray-900">{vehicle.monthly_cost ? formatCurrency(vehicle.monthly_cost) : '—'}</span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -1024,7 +1088,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Registration Document</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.registration_document_url)}</p>
                       </div>
-                      <a href={vehicle.registration_document_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.registration_document_url!, title: 'Registration Document' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
@@ -1040,7 +1104,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Revenue License</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.revenue_license_url)}</p>
                       </div>
-                      <a href={vehicle.revenue_license_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.revenue_license_url!, title: 'Revenue License' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
@@ -1056,7 +1120,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Eco Test</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.eco_test_url)}</p>
                       </div>
-                      <a href={vehicle.eco_test_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.eco_test_url!, title: 'Eco Test' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
@@ -1072,7 +1136,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Insurance</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.insurance_url)}</p>
                       </div>
-                      <a href={vehicle.insurance_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.insurance_url!, title: 'Insurance' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
@@ -1088,7 +1152,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                         <p className="text-sm font-medium text-gray-900">Service Tag</p>
                         <p className="text-xs text-gray-500 mt-0.5">{getFilename(vehicle.service_tag_url)}</p>
                       </div>
-                      <a href={vehicle.service_tag_url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">View Document</a>
+                      <button onClick={() => setDocViewer({ open: true, url: vehicle.service_tag_url!, title: 'Service Tag' })} className="btn-secondary text-xs">View Document</button>
                     </div>
                   ) : (
                     <div className="w-full border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
@@ -1202,7 +1266,7 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
                     {vehicle.rate_tiers?.map((tier, i) => (
                       <div key={i} className="flex items-center justify-between bg-gray-50 rounded-xl px-5 py-4">
                         <div>
-                          <p className="text-xs text-gray-500 mb-0.5">Duration</p>
+                          <p className="text-xs text-gray-500 mb-0.5">{TIER_LABELS[i] || 'Duration'}</p>
                           <p className="text-sm font-semibold text-gray-900">
                             {tier.days_from} — {tier.days_to ?? "∞"} days
                           </p>
@@ -1218,9 +1282,34 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
               </div>
 
               <div className="border border-blue-100 rounded-xl p-4 bg-blue-50/40">
-                <p className="text-xs text-blue-500 font-semibold mb-1">Base Daily Rate (Fallback)</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(vehicle.daily_rate)}<span className="text-sm font-normal text-gray-400"> / day</span></p>
+                <p className="text-xs text-blue-500 font-semibold mb-1">Monthly Rate</p>
+                <p className="text-2xl font-bold text-gray-900">{(() => {
+                  const tier4 = vehicle.rate_tiers?.find(t => t.days_from === 22);
+                  const monthly = tier4 ? tier4.rate_per_day * 30 : vehicle.daily_rate * 30;
+                  return formatCurrency(monthly);
+                })()}<span className="text-sm font-normal text-gray-400"> / month</span></p>
+                <p className="text-xs text-gray-400 mt-1">{formatCurrency(vehicle.daily_rate)} / day</p>
               </div>
+
+              {vehicle.source === "Supplier" && vehicle.monthly_cost && (
+                <div className="border border-amber-100 rounded-xl p-4 bg-amber-50/40">
+                  <p className="text-xs text-amber-600 font-semibold mb-1">Supplier Payment</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(vehicle.monthly_cost)}<span className="text-sm font-normal text-gray-400"> / month</span></p>
+                  {vehicle.payment_frequency && vehicle.payment_days && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {vehicle.payment_frequency === '15_days' ? 'Every 15 days' : 'Monthly'} on day{vehicle.payment_days.includes(',') ? 's' : ''} {vehicle.payment_days}
+                    </p>
+                  )}
+                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-amber-200">
+                    <span className="text-xs text-amber-600 font-semibold">Monthly Profit</span>
+                    <span className="text-base font-bold text-green-700">{(() => {
+                      const t4 = vehicle.rate_tiers?.find(t => t.days_from === 22);
+                      const monthly = t4 ? t4.rate_per_day * 30 : vehicle.daily_rate * 30;
+                      return formatCurrency(monthly - (vehicle.monthly_cost || 0));
+                    })()}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -1278,7 +1367,10 @@ export default function VehicleDetailClient({ vehicle: initial, suppliers, compa
       </Tabs>
       )}
 
-      <PasswordConfirmModal open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete Vehicle" description="This will permanently deactivate this vehicle." onConfirm={performDelete} />
+      <PasswordConfirmModal open={confirmEdit} onOpenChange={setConfirmEdit} title="Save Changes" description="Please verify your password to save changes to this vehicle." onConfirm={performEdit} />
+      <PasswordConfirmModal open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete Vehicle" description="This will permanently deactivate this vehicle." onConfirm={performDelete} variant="danger" />
+
+      <DocumentViewer open={docViewer.open} onOpenChange={(o) => setDocViewer({ ...docViewer, open: o })} url={docViewer.url} title={docViewer.title} />
     </div>
   );
 }

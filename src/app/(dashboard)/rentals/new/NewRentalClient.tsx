@@ -1,19 +1,22 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Vehicle, Customer, Guarantor } from "@/types";
 import { formatCurrency, calculateRentalAmount } from "@/lib/utils";
-import { createRental, checkVehicleOverlap } from "@/app/actions/rentals";
+import { createRental, checkVehicleOverlap, getVehicleBookedRanges, getBookedDates } from "@/app/actions/rentals";
 import { AlertTriangle, CheckCircle, ChevronRight, ChevronLeft } from "lucide-react";
+import { DayPicker } from "react-day-picker";
+import { format } from "date-fns";
 
 interface NewRentalClientProps {
   vehicles: Vehicle[];
   customers: Customer[];
   guarantors: Guarantor[];
+  activeCustomerIds: string[];
 }
 
-export default function NewRentalClient({ vehicles, customers, guarantors }: NewRentalClientProps) {
+export default function NewRentalClient({ vehicles, customers, guarantors, activeCustomerIds }: NewRentalClientProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isPending, startTransition] = useTransition();
@@ -26,6 +29,12 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
   const [guarantorId, setGuarantorId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [bookedRanges, setBookedRanges] = useState<{ start_date: string; end_date: string; status: string }[]>([]);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const startRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   // Step 2 state
   const [dailyRate, setDailyRate] = useState(0);
@@ -46,13 +55,43 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
     }
   }, [selectedVehicle, startDate, endDate]);
 
+  // Auto-check overlap when vehicle or dates change
+  useEffect(() => {
+    if (vehicleId && startDate && endDate && startDate < endDate) {
+      checkVehicleOverlap(vehicleId, startDate, endDate).then(setOverlapWarning);
+    } else {
+      setOverlapWarning(false);
+    }
+  }, [vehicleId, startDate, endDate]);
+
+  // Fetch booked ranges and dates when vehicle changes
+  useEffect(() => {
+    if (vehicleId) {
+      getVehicleBookedRanges(vehicleId).then(setBookedRanges);
+      getBookedDates(vehicleId).then(setBookedDates);
+    } else {
+      setBookedRanges([]);
+      setBookedDates([]);
+    }
+  }, [vehicleId]);
+
+  // Close pickers on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (startRef.current && !startRef.current.contains(e.target as Node)) setShowStartPicker(false);
+      if (endRef.current && !endRef.current.contains(e.target as Node)) setShowEndPicker(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   const { days, subtotal } = startDate && endDate && dailyRate > 0
     ? calculateRentalAmount(startDate, endDate, dailyRate)
     : { days: 0, subtotal: 0 };
   const total = subtotal + additionalCharges - discount;
 
   async function handleStep1Next() {
-    if (!vehicleId || !customerId || !startDate || !endDate) {
+    if (!vehicleId || !customerId || !guarantorId || !startDate || !endDate) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -61,16 +100,16 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
       return;
     }
 
-    // Check overlap
     startTransition(async () => {
       const overlaps = await checkVehicleOverlap(vehicleId, startDate, endDate);
       if (overlaps) {
+        setError("Selected dates overlap with an existing rental. Please choose different dates.");
         setOverlapWarning(true);
-      } else {
-        setOverlapWarning(false);
-        setError(null);
-        setStep(2);
+        return;
       }
+      setOverlapWarning(false);
+      setError(null);
+      setStep(2);
     });
   }
 
@@ -79,7 +118,7 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
       const result = await createRental({
         vehicle_id: vehicleId,
         customer_id: customerId,
-        guarantor_id: guarantorId || undefined,
+        guarantor_id: guarantorId,
         start_date: startDate,
         end_date: endDate,
         daily_rate: dailyRate,
@@ -96,7 +135,7 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
   }
 
   return (
-    <div className="section-card">
+    <div className="section-card overflow-visible">
       {/* Step indicator */}
       <div className="px-6 py-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
@@ -115,35 +154,70 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
                 <label className="form-label">Vehicle <span className="text-red-500">*</span></label>
                 <select className="form-select" value={vehicleId} onChange={e => { setVehicleId(e.target.value); setOverlapWarning(false); }}>
                   <option value="">— Select a vehicle —</option>
-                  {vehicles.map(v => (
-                    <option key={v.id} value={v.id}>{v.reg_number} — {v.brand} {v.model} ({formatCurrency(v.daily_rate)}/day)</option>
-                  ))}
+                  {vehicles.map(v => {
+                    const unavailable = v.status !== 'available';
+                    const inGarage = v.status === 'in_garage';
+                    return (
+                      <option key={v.id} value={v.id} disabled={inGarage}
+                        style={inGarage ? { color: '#9ca3af' } : unavailable ? { color: '#dc2626' } : undefined}>
+                        {inGarage ? '🚫 ' : unavailable ? '⚠ ' : ''}{v.reg_number} — {v.brand} {v.model} ({formatCurrency(v.daily_rate)}/day){unavailable ? ` [${v.status}]` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div>
                 <label className="form-label">Customer <span className="text-red-500">*</span></label>
                 <select className="form-select" value={customerId} onChange={e => setCustomerId(e.target.value)}>
                   <option value="">— Select a customer —</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+                  {customers.map(c => {
+                    const hasActive = activeCustomerIds.includes(c.id);
+                    return (
+                      <option key={c.id} value={c.id} disabled={hasActive}
+                        style={hasActive ? { color: '#9ca3af' } : undefined}>
+                        {hasActive ? '🚫 ' : ''}{c.name} ({c.phone}){hasActive ? ' [Has Active Rental]' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div>
-                <label className="form-label">Guarantor (optional)</label>
-                <select className="form-select" value={guarantorId} onChange={e => setGuarantorId(e.target.value)}>
-                  <option value="">— None —</option>
+                <label className="form-label">Guarantor <span className="text-red-500">*</span></label>
+                <select className="form-select" value={guarantorId} onChange={e => setGuarantorId(e.target.value)} required>
+                  <option value="">— Select a guarantor —</option>
                   {guarantors.map(g => <option key={g.id} value={g.id}>{g.name} ({g.phone})</option>)}
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div ref={startRef} className="relative">
                 <label className="form-label">Pickup Date <span className="text-red-500">*</span></label>
-                <input type="date" className="form-input" value={startDate} onChange={e => { setStartDate(e.target.value); setOverlapWarning(false); }} />
+                <input type="text" readOnly className="form-input cursor-pointer" value={startDate || 'Select date'} onClick={() => setShowStartPicker(!showStartPicker)} />
+                {showStartPicker && (
+                  <div className="absolute z-50 mt-1 bg-card border border-border rounded-xl shadow-lg p-2" style={{ width: '260px', fontSize: '0.75rem' }}>
+                    <DayPicker mode="single" selected={startDate ? new Date(startDate + 'T12:00:00') : undefined}
+                      onSelect={(d) => { if (d) { setStartDate(format(d, 'yyyy-MM-dd')); setShowStartPicker(false); } }}
+                      disabled={[{ before: new Date() }, ...bookedDates]}
+                      modifiers={{ booked: bookedDates }}
+                      modifiersStyles={{ booked: { backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', textDecoration: 'line-through' } }}
+                      styles={{ months: { width: '100%' }, table: { width: '100%' }, head_cell: { fontSize: '0.6rem', padding: '2px 0' }, cell: { width: '32px', height: '28px', padding: 0 }, day: { width: '26px', height: '26px', margin: '0 auto', borderRadius: '6px', fontSize: '0.72rem' }, nav_button: { width: '24px', height: '24px' }, caption_label: { fontSize: '0.75rem' }, caption: { padding: '2px 0 6px' } }} />
+                  </div>
+                )}
               </div>
-              <div>
+              <div ref={endRef} className="relative">
                 <label className="form-label">Return Date <span className="text-red-500">*</span></label>
-                <input type="date" className="form-input" value={endDate} onChange={e => { setEndDate(e.target.value); setOverlapWarning(false); }} min={startDate || undefined} />
+                <input type="text" readOnly className="form-input cursor-pointer" value={endDate || 'Select date'} onClick={() => setShowEndPicker(!showEndPicker)} />
+                {showEndPicker && (
+                  <div className="absolute z-50 mt-1 bg-card border border-border rounded-xl shadow-lg p-2" style={{ width: '260px', fontSize: '0.75rem' }}>
+                    <DayPicker mode="single" selected={endDate ? new Date(endDate + 'T12:00:00') : undefined}
+                      onSelect={(d) => { if (d) { setEndDate(format(d, 'yyyy-MM-dd')); setShowEndPicker(false); } }}
+                      disabled={[{ before: startDate ? new Date(startDate + 'T12:00:00') : new Date() }, ...bookedDates]}
+                      modifiers={{ booked: bookedDates }}
+                      modifiersStyles={{ booked: { backgroundColor: '#fee2e2', color: '#dc2626', borderRadius: '4px', textDecoration: 'line-through' } }}
+                      styles={{ months: { width: '100%' }, table: { width: '100%' }, head_cell: { fontSize: '0.6rem', padding: '2px 0' }, cell: { width: '32px', height: '28px', padding: 0 }, day: { width: '26px', height: '26px', margin: '0 auto', borderRadius: '6px', fontSize: '0.72rem' }, nav_button: { width: '24px', height: '24px' }, caption_label: { fontSize: '0.75rem' }, caption: { padding: '2px 0 6px' } }} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -155,6 +229,24 @@ export default function NewRentalClient({ vehicles, customers, guarantors }: New
                   <strong>{days} days</strong> rental
                   {selectedVehicle && <> · Estimated: <strong>{formatCurrency(dailyRate)}/day</strong> = <strong>{formatCurrency(subtotal)}</strong></>}
                 </span>
+              </div>
+            )}
+
+            {/* Booked ranges for this vehicle */}
+            {bookedRanges.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-amber-700 mb-1">Existing bookings for this vehicle:</p>
+                <ul className="space-y-0.5">
+                  {bookedRanges.map((r, i) => (
+                    <li key={i} className="text-xs text-amber-800 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                      {r.start_date} — {r.end_date}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${r.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {r.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

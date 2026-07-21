@@ -8,29 +8,44 @@ import { Company } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { formatAddress } from "@/lib/address";
 import { updateCompany, deleteCompany } from "@/app/actions/companies";
+import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import FileUploader from "@/components/shared/FileUploader";
 import AddressFields from "@/components/shared/AddressFields";
 
 export default function CompanyDetailClient({ company }: { company: Company }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingFd, setPendingFd] = useState<FormData | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    setPendingFd(fd);
     setError(null);
+    setConfirmEdit(true);
+  }
+
+  async function performEdit() {
+    if (!pendingFd) return;
     startTransition(async () => {
-      const result = await updateCompany(company.id, fd);
-      if ("error" in result && result.error) { setError(result.error); return; }
+      const result = await updateCompany(company.id, pendingFd);
+      if ("error" in result && result.error) { setError(result.error); setConfirmEdit(false); return; }
+      setConfirmEdit(false);
       setEditing(false);
+      setPendingFd(null);
       router.refresh();
     });
   }
 
-  function handleDelete() {
+  function handleDeleteClick() {
+    setConfirmDelete(true);
+  }
+
+  async function performDelete() {
     startTransition(async () => {
       const result = await deleteCompany(company.id);
       if ("error" in result && result.error) { setError(result.error); return; }
@@ -199,22 +214,8 @@ export default function CompanyDetailClient({ company }: { company: Company }) {
         </div>
       </div>
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">Delete Company</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to delete <strong>{company.name}</strong>? This cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="btn-secondary text-sm">Cancel</button>
-              <button onClick={handleDelete} disabled={isPending} className="btn-primary text-sm bg-red-600 hover:bg-red-700 border-red-600">
-                {isPending ? "Deleting..." : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PasswordConfirmModal open={confirmEdit} onOpenChange={setConfirmEdit} title="Save Changes" description="Please verify your password to save changes to this company." onConfirm={performEdit} />
+      <PasswordConfirmModal open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete Company" description={`Are you sure you want to delete ${company.name}? This cannot be undone.`} onConfirm={performDelete} variant="danger" />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'employee';
-export type VehicleStatus = 'available' | 'rented' | 'booked' | 'in_garage';
+export type VehicleStatus = 'available' | 'rented' | 'booked' | 'in_garage' | 'owner_returned';
 export type VehicleType = 'Sedan' | 'Hatchback' | 'SUV' | 'Van' | 'Pickup' | 'Bus' | 'Other';
 export type VehicleSource = 'Company' | 'Supplier';
 export type RentalStatus = 'booked' | 'active' | 'paused' | 'returned' | 'cancelled' | 'overdue' | 'completed' | 'extended' | 'swapped';
@@ -139,6 +139,7 @@ export interface RateTier {
   days_from: number;
   days_to?: number;
   rate_per_day: number;
+  label?: string;
 }
 
 export interface Customer extends AddressParts {

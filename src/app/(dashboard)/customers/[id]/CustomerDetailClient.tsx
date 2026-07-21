@@ -2,17 +2,18 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, ClipboardList, Edit, ChevronDown, TrendingUp, ImageIcon } from "lucide-react";
+import { ArrowLeft, User, ClipboardList, Edit, ChevronDown, TrendingUp, ImageIcon, Trash2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { formatAddress } from "@/lib/address";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { updateCustomer } from "@/app/actions/customers";
+import { updateCustomer, deleteCustomer } from "@/app/actions/customers";
 import { useRouter } from "next/navigation";
 import FileUploader from "@/components/shared/FileUploader";
 import EditModal from "@/components/shared/EditModal";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import AddressFields from "@/components/shared/AddressFields";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 
 // ── Income Details list ────────────────────────────────────────────────────────
 function CustomerFinancialsList({ rentals }: { rentals: any[] }) {
@@ -94,19 +95,19 @@ function CustomerFinancialsList({ rentals }: { rentals: any[] }) {
 }
 
 // ── Image preview card ─────────────────────────────────────────────────────────
-function ImageCard({ label, url }: { label: string; url?: string | null }) {
+function ImageCard({ label, url, onClick }: { label: string; url?: string | null; onClick?: () => void }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-gray-400 font-medium">{label}</p>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="block group">
+        <button onClick={onClick} className="block group w-full text-left">
           <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
             <img src={url} alt={label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-              <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded transition-opacity">View Full</span>
+              <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded transition-opacity">View</span>
             </div>
           </div>
-        </a>
+        </button>
       ) : (
         <div className="w-full aspect-[4/3] rounded-xl border border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1.5">
           <ImageIcon className="w-6 h-6 text-gray-300" />
@@ -122,6 +123,8 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmSave, setConfirmSave] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [docViewer, setDocViewer] = useState<{ open: boolean; url: string; title: string }>({ open: false, url: '', title: '' });
   const [pendingFd, setPendingFd] = useState<FormData | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +150,14 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
       setPendingFd(null);
       router.push(`/customers/${customer.id}`);
       router.refresh();
+    });
+  }
+
+  async function performDelete() {
+    startTransition(async () => {
+      const result = await deleteCustomer(customer.id);
+      if ((result as any)?.error) { setError((result as any).error); return; }
+      router.push("/customers");
     });
   }
 
@@ -181,6 +192,9 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
               <button onClick={() => { setError(null); setIsEditing(true); }} className="btn-secondary text-sm">
                 <Edit className="w-3.5 h-3.5" /> Edit
               </button>
+              <button onClick={() => setConfirmDelete(true)} className="btn-danger text-sm">
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
             </div>
           </div>
 
@@ -214,12 +228,12 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Documents & Photos</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <ImageCard label="NIC Front" url={customer.nic_front_url} />
-                  <ImageCard label="NIC Back" url={customer.nic_back_url} />
-                  <ImageCard label="Customer Photo" url={customer.photo_url} />
-                  <ImageCard label="Utility Bill" url={customer.utility_bill_url} />
-                  <ImageCard label="License Front" url={customer.driving_license_front_url} />
-                  <ImageCard label="License Back" url={customer.driving_license_back_url} />
+                  <ImageCard label="NIC Front" url={customer.nic_front_url} onClick={() => setDocViewer({ open: true, url: customer.nic_front_url!, title: 'NIC Front' })} />
+                  <ImageCard label="NIC Back" url={customer.nic_back_url} onClick={() => setDocViewer({ open: true, url: customer.nic_back_url!, title: 'NIC Back' })} />
+                  <ImageCard label="Customer Photo" url={customer.photo_url} onClick={() => setDocViewer({ open: true, url: customer.photo_url!, title: 'Customer Photo' })} />
+                  <ImageCard label="Utility Bill" url={customer.utility_bill_url} onClick={() => setDocViewer({ open: true, url: customer.utility_bill_url!, title: 'Utility Bill' })} />
+                  <ImageCard label="License Front" url={customer.driving_license_front_url} onClick={() => setDocViewer({ open: true, url: customer.driving_license_front_url!, title: 'License Front' })} />
+                  <ImageCard label="License Back" url={customer.driving_license_back_url} onClick={() => setDocViewer({ open: true, url: customer.driving_license_back_url!, title: 'License Back' })} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 pt-2">
@@ -350,6 +364,17 @@ export default function CustomerDetailClient({ customer, rentals }: { customer: 
           description="Enter your password to save customer changes."
           onConfirm={performSave}
         />
+
+        <PasswordConfirmModal
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          title="Delete Customer"
+          description={`Are you sure you want to delete ${customer.name}? This cannot be undone.`}
+          onConfirm={performDelete}
+          variant="danger"
+        />
+
+        <DocumentViewer open={docViewer.open} onOpenChange={(o) => setDocViewer({ ...docViewer, open: o })} url={docViewer.url} title={docViewer.title} />
       </EditModal>
     </div>
   );

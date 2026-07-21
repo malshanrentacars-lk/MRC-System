@@ -12,6 +12,7 @@ const statusColorMap: Record<string, string> = {
   paused: "bg-violet-50 text-violet-700 border border-violet-100",
   booked: "bg-amber-50 text-amber-700 border border-amber-100",
   in_garage: "bg-purple-50 text-purple-700 border border-purple-100",
+  owner_returned: "bg-teal-50 text-teal-700 border border-teal-100",
   returned: "bg-gray-100 text-gray-600 border border-gray-200",
   completed: "bg-slate-100 text-slate-700 border border-slate-200",
   extended: "bg-amber-50 text-amber-700 border border-amber-100",
@@ -35,6 +36,7 @@ const statusColorMap: Record<string, string> = {
 const statusLabelMap: Record<string, string> = {
   overdue: "Service Overdue",
   in_garage: "In Garage",
+  owner_returned: "Owner Returned",
   available: "Available",
   rented: "Rented",
   active: "Active",

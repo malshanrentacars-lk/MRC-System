@@ -11,6 +11,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { updateUser, toggleUserActive } from "@/app/actions/users";
 import { getActivityLogs } from "@/app/actions/activity";
 import { useRouter } from "next/navigation";
+import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
 import { getTOTPStatus, adminResetTOTP } from "@/app/actions/auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -258,6 +259,8 @@ export default function UserDetailClient({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmToggle, setConfirmToggle] = useState(false);
+  const [confirmEdit, setConfirmEdit] = useState(false);
+  const [pendingFd, setPendingFd] = useState<FormData | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<string>(user.avatar_url ?? '');
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [totpSetupRequired, setTotpSetupRequired] = useState(true);
@@ -298,6 +301,10 @@ export default function UserDetailClient({
   ];
 
   async function handleToggleActive() {
+    setConfirmToggle(true);
+  }
+
+  async function performToggle() {
     startTransition(async () => {
       await toggleUserActive(user.id, !user.is_active);
       setConfirmToggle(false);
@@ -313,12 +320,19 @@ export default function UserDetailClient({
   async function handleEditSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    setPendingFd(fd);
+    setError(null);
+    setConfirmEdit(true);
+  }
+
+  async function performEdit() {
+    if (!pendingFd) return;
     startTransition(async () => {
-      const result = await updateUser(user.id, fd);
-      if ("error" in result && result.error) { setError(result.error); return; }
+      const result = await updateUser(user.id, pendingFd);
+      if ("error" in result && result.error) { setError(result.error); setConfirmEdit(false); return; }
+      setConfirmEdit(false);
       setIsEditing(false);
-      // Use push instead of refresh so the new session cookie is picked up
-      // across the entire layout (sidebar name, etc.)
+      setPendingFd(null);
       router.push(`/users/${user.id}`);
       router.refresh();
     });
@@ -591,23 +605,8 @@ export default function UserDetailClient({
         )}
       </div>
 
-      {/* Toggle confirmation dialog */}
-      {confirmToggle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">{user.is_active ? "Deactivate User" : "Activate User"}</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to {user.is_active ? "deactivate" : "activate"} <strong>{user.full_name}</strong>?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmToggle(false)} className="btn-secondary text-sm">Cancel</button>
-              <button onClick={handleToggleActive} disabled={isPending} className="btn-primary text-sm">
-                {isPending ? "Processing..." : "Confirm"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PasswordConfirmModal open={confirmEdit} onOpenChange={setConfirmEdit} title="Save Changes" description="Please verify your password to save changes to this user." onConfirm={performEdit} />
+      <PasswordConfirmModal open={confirmToggle} onOpenChange={setConfirmToggle} title={user.is_active ? "Deactivate User" : "Activate User"} description={`Are you sure you want to ${user.is_active ? "deactivate" : "activate"} ${user.full_name}?`} onConfirm={performToggle} variant="danger" />
     </div>
   );
 }

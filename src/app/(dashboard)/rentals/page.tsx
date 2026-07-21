@@ -28,7 +28,7 @@ export default async function RentalsPage({
           <p className="page-subtitle">Manage vehicle rentals — {count} total</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/rentals/deleted" className="btn-danger inline-flex items-center gap-2">
+          <Link href="/rentals/deleted" className="btn-secondary inline-flex items-center gap-2">
             <Trash className="w-4 h-4" />
             <span className="font-medium">Deleted Rentals</span>
           </Link>

@@ -66,26 +66,15 @@ export async function getVehicles(params?: {
   return _cachedGetVehicles(params);
 }
 
-async function _fetchVehicleById(id: string): Promise<Vehicle | null> {
+export async function getVehicleById(id: string): Promise<Vehicle | null> {
+  await requireAuth();
   const { data, error } = await supabaseAdmin
     .from('vehicles')
     .select('*, supplier:suppliers(id, name, bank, account_number, branch), company:companies(id, name), photos:vehicle_photos(*), rate_tiers(*)')
     .eq('id', id)
     .single();
-
   if (error) return null;
   return data as Vehicle;
-}
-
-const _cachedGetVehicleById = unstable_cache(
-  _fetchVehicleById,
-  ['vehicle-by-id'],
-  { tags: [VEHICLES_TAG], revalidate: false },
-);
-
-export async function getVehicleById(id: string): Promise<Vehicle | null> {
-  await requireAuth();
-  return _cachedGetVehicleById(id);
 }
 
 function parseVehicleFields(formData: FormData) {
@@ -446,26 +435,136 @@ export async function getVehicleUpdates(vehicleId: string) {
   return data ?? [];
 }
 
+const UPDATE_TYPE_FIELDS: Record<string, { vehicleField: string; label: string; docUrlField?: string; docPathField?: string }> = {
+  insurance: { vehicleField: 'insurance_expiry', label: 'Insurance Expiry', docUrlField: 'insurance_url', docPathField: 'insurance_path' },
+  revenue_license: { vehicleField: 'revenue_license_expiry', label: 'Revenue License Expiry', docUrlField: 'revenue_license_url', docPathField: 'revenue_license_path' },
+  eco_test: { vehicleField: 'eco_test_expiry', label: 'Eco Test Expiry', docUrlField: 'eco_test_url', docPathField: 'eco_test_path' },
+  service: { vehicleField: 'next_service_date', label: 'Next Service' },
+};
+
+function calcNextServiceDate(lastDate: string, intervalKm: number): string | null {
+  if (!lastDate || !intervalKm) return null;
+  const date = new Date(lastDate + 'T00:00:00');
+  if (isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + Math.round(intervalKm / 100));
+  return date.toISOString().split('T')[0];
+}
+
 export async function addVehicleUpdate(vehicleId: string, formData: FormData) {
   const session = await requireAuth();
 
+  const updateType = (formData.get('update_type') as string) || 'general';
   const updateDate = formData.get('update_date') as string;
   const kmVal = formData.get('current_km') as string;
-  const description = formData.get('description') as string;
 
-  if (!description) return { error: 'Description is required' };
+  // Auto-generate description for document-based types if not provided
+  let description = (formData.get('description') as string) || '';
+  if (!description && updateType !== 'service') {
+    const typeInfo = UPDATE_TYPE_FIELDS[updateType];
+    if (typeInfo) {
+      const expiryDate = formData.get('expiry_date') as string;
+      description = `${typeInfo.label} ${expiryDate ? `renewed — expiry: ${expiryDate}` : 'updated'}`;
+    } else {
+      description = 'Vehicle update logged';
+    }
+  }
+
+  if (updateType === 'service' && !description) {
+    description = 'Service completed';
+  }
+
+  // Document upload is required for insurance, revenue license, eco test
+  if ((updateType === 'insurance' || updateType === 'revenue_license' || updateType === 'eco_test') && !formData.get('doc_url')) {
+    return { error: 'Please upload the new document.' };
+  }
+
+  // Fetch current vehicle values BEFORE updating — for diff history
+  const diffFields = 'current_km, last_service_date, last_service_km, next_service_date, next_service_km, insurance_expiry, revenue_license_expiry, eco_test_expiry, insurance_url, revenue_license_url, eco_test_url, status';
+  const { data: currentVehicle } = await supabaseAdmin.from('vehicles').select(diffFields).eq('id', vehicleId).single();
+  const oldData: Record<string, unknown> = currentVehicle ? { ...currentVehicle } : {};
 
   const update: Record<string, unknown> = {
     vehicle_id: vehicleId,
     update_date: updateDate || new Date().toISOString().split('T')[0],
+    update_type: updateType,
     description,
     created_by: session.id,
   };
 
+  // Update vehicle fields based on update type
+  const vehicleUpdates: Record<string, unknown> = {};
+
   if (kmVal) {
     update.current_km = parseInt(kmVal);
-    // Also update the vehicle's current_km
-    await supabaseAdmin.from('vehicles').update({ current_km: parseInt(kmVal) }).eq('id', vehicleId);
+    vehicleUpdates.current_km = parseInt(kmVal);
+  }
+
+  const typeInfo = UPDATE_TYPE_FIELDS[updateType];
+  if (typeInfo) {
+    const expiryDate = formData.get('expiry_date') as string;
+    if (expiryDate) {
+      vehicleUpdates[typeInfo.vehicleField] = expiryDate;
+    }
+    if (typeInfo.docUrlField && typeInfo.docPathField) {
+      const docUrl = formData.get('doc_url') as string;
+      const docPath = formData.get('doc_path') as string;
+      if (docUrl) vehicleUpdates[typeInfo.docUrlField] = docUrl || '';
+      if (docPath) vehicleUpdates[typeInfo.docPathField] = docPath || '';
+    }
+  }
+
+  if (updateType === 'service') {
+    const interval = formData.get('service_interval') as string;
+    if (interval) {
+      const intervalKm = parseInt(interval);
+      const lastServiceDate = updateDate || new Date().toISOString().split('T')[0];
+      const lastServiceKm = kmVal ? parseInt(kmVal) : 0;
+
+      // Calculate next service values
+      const nextKm = lastServiceKm + intervalKm;
+      const nextDate = calcNextServiceDate(lastServiceDate, intervalKm);
+
+      vehicleUpdates.last_service_date = lastServiceDate;
+      vehicleUpdates.last_service_km = lastServiceKm;
+      vehicleUpdates.next_service_km = nextKm;
+      if (nextDate) vehicleUpdates.next_service_date = nextDate;
+    }
+  }
+
+  // Handle vehicle status change (General type)
+  const newStatus = formData.get('vehicle_status') as string;
+  if (newStatus && newStatus !== '') {
+    vehicleUpdates.status = newStatus;
+  }
+
+  // Build old_data / new_data for diff
+  const oldFiltered: Record<string, unknown> = {};
+  const newFiltered: Record<string, unknown> = {};
+  for (const key of Object.keys(vehicleUpdates)) {
+    if (key.endsWith('_url')) {
+      oldFiltered[key] = oldData[key] ? 'uploaded' : null;
+      newFiltered[key] = vehicleUpdates[key] ? 'uploaded' : null;
+    } else {
+      oldFiltered[key] = oldData[key] ?? null;
+      newFiltered[key] = vehicleUpdates[key] ?? null;
+    }
+  }
+  // Only store diff if something actually changed
+  const hasDiff = Object.keys(vehicleUpdates).some(k => {
+    const oldVal = keyEndsWithUrl(k) ? (oldData[k] ? 'uploaded' : null) : (oldData[k] ?? null);
+    const newVal = keyEndsWithUrl(k) ? (vehicleUpdates[k] ? 'uploaded' : null) : (vehicleUpdates[k] ?? null);
+    return JSON.stringify(oldVal) !== JSON.stringify(newVal);
+  });
+
+  function keyEndsWithUrl(k: string) { return k.endsWith('_url'); }
+
+  if (hasDiff) {
+    update.old_data = oldFiltered;
+    update.new_data = newFiltered;
+  }
+
+  if (Object.keys(vehicleUpdates).length > 0) {
+    await supabaseAdmin.from('vehicles').update(vehicleUpdates).eq('id', vehicleId);
   }
 
   const { data, error } = await supabaseAdmin.from('vehicle_updates').insert(update).select().single();

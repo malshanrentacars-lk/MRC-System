@@ -143,7 +143,7 @@ export default function VehiclesClient({ vehicles: initialVehicles, total: initi
 
         <select className="form-select w-auto" value={status} onChange={(e) => { setStatus(e.target.value); debouncedFilter({ status: e.target.value }); }}>
           <option value="all">All Status</option>
-          {["available","rented","booked","in_garage"].map(s => <option key={s} value={s}>{s.replace("_"," ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+          {["available","rented","booked","in_garage","owner_returned"].map(s => <option key={s} value={s}>{s.replace("_"," ").replace(/\b\w/g, c => c.toUpperCase())}</option>)}
         </select>
 
         <select className="form-select w-auto" value={source} onChange={(e) => { setSource(e.target.value); debouncedFilter({ source: e.target.value }); }}>

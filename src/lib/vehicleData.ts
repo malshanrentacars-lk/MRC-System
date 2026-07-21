@@ -48,20 +48,22 @@ export const VEHICLE_TYPES = ["Sedan","Hatchback","SUV","Van","Pickup","Bus","Ot
 /**
  * Calculate the 4 rate tiers from a monthly rate.
  * Tiers:
- *   Below 1 Week  (1–6 days):   M/30 + 2000
- *   Above 1 Week  (7–13 days):  M/30 + 1500
- *   Above 2 Weeks (14–29 days): M/30 + 1000
- *   1 Month       (30+ days):   M/30
+ *   1 Week  (1–7 days):   M/30 + 2000
+ *   2 Weeks (8–14 days):  M/30 + 1500
+ *   3 Weeks (15–21 days): M/30 + 1000
+ *   1 Month (22+ days):   M/30
  */
 export function calcTiersFromMonthly(monthly: number) {
   const base = monthly / 30;
   return [
-    { label: "Below 1 Week",  days_from: 1,  days_to: 6,    rate_per_day: Math.round(base + 2000) },
-    { label: "Above 1 Week",  days_from: 7,  days_to: 13,   rate_per_day: Math.round(base + 1500) },
-    { label: "Above 2 Weeks", days_from: 14, days_to: 29,   rate_per_day: Math.round(base + 1000) },
-    { label: "1 Month",       days_from: 30, days_to: null, rate_per_day: Math.round(base) },
+    { label: "1 Week",  days_from: 1,  days_to: 7,    rate_per_day: Math.round(base + 2000) },
+    { label: "2 Weeks", days_from: 8,  days_to: 14,   rate_per_day: Math.round(base + 1500) },
+    { label: "3 Weeks", days_from: 15, days_to: 21,   rate_per_day: Math.round(base + 1000) },
+    { label: "1 Month", days_from: 22, days_to: 30, rate_per_day: Math.round(base) },
   ];
 }
+
+export const TIER_LABELS = ['1 Week', '2 Weeks', '3 Weeks', '1 Month'];
 
 export const YEARS = Array.from({ length: 2026 - 2000 + 1 }, (_, i) => 2026 - i); // 2026 down to 2000
 

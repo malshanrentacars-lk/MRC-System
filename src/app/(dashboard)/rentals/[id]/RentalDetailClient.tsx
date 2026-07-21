@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Rental, Vehicle } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { formatAddress } from "@/lib/address";
 import { activateRental, returnRental, exchangeVehicle, cancelRental, uploadSignedAgreement, recordRentalPayment, removeSignedAgreement } from "@/app/actions/rentals";
 import PasswordConfirmModal from "@/components/shared/PasswordConfirmModal";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 import StatusBadge from "@/components/shared/StatusBadge";
 import RentalActionsCard from "@/components/rentals/RentalActionsCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -34,14 +36,11 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
   const [showActivate, setShowActivate] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
-  const [showAgreementViewer, setShowAgreementViewer] = useState(false);
-  const [agreementPreviewUrl, setAgreementPreviewUrl] = useState<string | null>(null);
-  const [agreementPreviewLoading, setAgreementPreviewLoading] = useState(false);
-  const agreementViewerContainerRef = useRef<HTMLDivElement | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [docViewer, setDocViewer] = useState<{ open: boolean; url: string; title: string }>({ open: false, url: '', title: '' });
 
   // Return form
   const [returnKm, setReturnKm] = useState("");
@@ -145,98 +144,8 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
     setError(null);
     setAgreementUrl("");
     setAgreementPath("");
-    setAgreementPreviewUrl(null);
     router.refresh();
   }
-
-  async function openAgreementViewer() {
-    if (!agreementUrl) return;
-
-    setAgreementPreviewLoading(true);
-    setShowAgreementViewer(true);
-
-    try {
-      const response = await fetch(agreementUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to load PDF (${response.status})`);
-      }
-
-      const blob = await response.blob();
-      const previewUrl = URL.createObjectURL(blob);
-      setAgreementPreviewUrl((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return previewUrl;
-      });
-    } catch {
-      setAgreementPreviewUrl(null);
-      setError("Could not open the PDF preview.");
-    } finally {
-      setAgreementPreviewLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (agreementPreviewUrl) URL.revokeObjectURL(agreementPreviewUrl);
-    };
-  }, [agreementPreviewUrl]);
-
-  useEffect(() => {
-    if (!showAgreementViewer || !agreementPreviewUrl) return;
-
-    let cancelled = false;
-    const container = agreementViewerContainerRef.current;
-    if (!container) return;
-
-    const renderPdf = async () => {
-      setAgreementPreviewLoading(true);
-      container.innerHTML = "";
-
-      try {
-        const pdfjsLib = await import("pdfjs-dist");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
-
-        const pdf = await pdfjsLib.getDocument({ url: agreementPreviewUrl }).promise;
-        if (cancelled) return;
-
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-          const page = await pdf.getPage(pageNumber);
-          if (cancelled) return;
-
-          const viewport = page.getViewport({ scale: 1.5 });
-          const pageWrap = document.createElement("div");
-          pageWrap.className = "bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 mb-4";
-
-          const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
-          if (!context) continue;
-
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          canvas.style.width = "100%";
-          canvas.style.height = "auto";
-          canvas.style.display = "block";
-
-          await page.render({ canvasContext: context, canvas, viewport }).promise;
-          pageWrap.appendChild(canvas);
-          container.appendChild(pageWrap);
-        }
-      } catch {
-        if (!cancelled) {
-          container.innerHTML = '<div class="w-full h-full flex items-center justify-center text-sm text-gray-500">Could not render PDF preview.</div>';
-        }
-      } finally {
-        if (!cancelled) setAgreementPreviewLoading(false);
-      }
-    };
-
-    renderPdf();
-
-    return () => {
-      cancelled = true;
-      container.innerHTML = "";
-    };
-  }, [agreementPreviewUrl, showAgreementViewer]);
 
   async function handleRecordPayment() {
     const amount = parseFloat(paymentAmount);
@@ -334,8 +243,9 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
           <div className="px-5 pt-4 flex items-center justify-between gap-4 flex-wrap border-b border-gray-200 pb-0 bg-white">
             <TabsList className="border-b-0">
               <TabsTrigger value="details"><FileText className="w-3.5 h-3.5 mr-1.5 inline" />Details</TabsTrigger>
+              <TabsTrigger value="vehicle"><Car className="w-3.5 h-3.5 mr-1.5 inline" />Vehicle</TabsTrigger>
+              <TabsTrigger value="guarantor"><User className="w-3.5 h-3.5 mr-1.5 inline" />Customer</TabsTrigger>
               <TabsTrigger value="inspection"><ClipboardList className="w-3.5 h-3.5 mr-1.5 inline" />Inspection</TabsTrigger>
-              <TabsTrigger value="guarantor"><Shield className="w-3.5 h-3.5 mr-1.5 inline" />Guarantor</TabsTrigger>
               <TabsTrigger value="documents"><FileText className="w-3.5 h-3.5 mr-1.5 inline" />Documents</TabsTrigger>
               <TabsTrigger value="activity"><Activity className="w-3.5 h-3.5 mr-1.5 inline" />Activity Log</TabsTrigger>
             </TabsList>
@@ -344,253 +254,112 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
 
           {/* ── DETAILS TAB ── */}
           <TabsContent value="details" className="mt-0">
-            <div className="p-5 bg-white">
-              {/* Prominent payment settlement banner */}
-              {netBalance === 0 ? (
-                <div className="mb-4 bg-green-50 border-l-4 border-green-500 rounded-md p-3 text-green-900">
-                  <p className="font-semibold">Payment Settled</p>
-                  <p className="text-sm text-green-700">Full payment received — no outstanding balance.</p>
+            <div className="p-5">
+              {/* Payment status banner */}
+              {netBalance !== 0 &&
+                <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-700">
+                  {netBalance > 0 ? `Balance Due: ${formatCurrency(balanceDue)}` : `Refund Due: ${formatCurrency(refundDue)}`}
                 </div>
-              ) : netBalance > 0 ? (
-                <div className="mb-4 bg-red-50 border-l-4 border-red-500 rounded-md p-3 text-red-900">
-                  <p className="font-semibold">Payment Due</p>
-                  <p className="text-sm text-red-700">Outstanding amount: {formatCurrency(balanceDue)}</p>
-                </div>
-              ) : (
-                <div className="mb-4 bg-purple-50 border-l-4 border-purple-500 rounded-md p-3 text-purple-900">
-                  <p className="font-semibold">Refund Pending</p>
-                  <p className="text-sm text-purple-700">Refund to customer: {formatCurrency(refundDue)}</p>
-                </div>
-              )}
-              <div className="details-container grid grid-cols-12 gap-6">
-                {/* Left column (Main) */}
-                <div className="col-span-12 md:col-span-8 space-y-6">
-                  <div className="bg-white rounded-lg p-5 text-gray-900 border border-gray-200 shadow-sm">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Rental Information</p>
-                    <div className="grid grid-cols-2 gap-4">
+              }
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                {/* Left column */}
+                <div className="md:col-span-8 space-y-4">
+                  {/* Info card */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                       {[
                         { label: "Rental #", value: rental.rental_number },
-                        { label: "Status", value: <StatusBadge status={rental.status} className="bg-white/5" /> },
+                        { label: "Status", value: <StatusBadge status={rental.status} /> },
                         { label: "Payment", value: <StatusBadge status={rental.payment_status} /> },
-                        { label: "Rate Type", value: (rental as any).rate_type ?? "Daily" },
                         { label: "Pickup Date", value: formatDate(rental.start_date) },
-                        { label: "Expected Return", value: formatDate(rental.end_date) },
+                        { label: "Return Date", value: formatDate(rental.end_date) },
                         { label: "Actual Return", value: rental.actual_return_date ? formatDate(rental.actual_return_date) : "—" },
-                        { label: "Total Days", value: `${rental.total_days} days` },
+                        { label: "Total Days", value: `${rental.total_days}d` },
                         { label: "Pickup KM", value: `${rental.pickup_km?.toLocaleString() ?? 0} km` },
                         { label: "Return KM", value: rental.return_km ? `${rental.return_km.toLocaleString()} km` : "—" },
-                      ].map(f => (
+                        { label: "Daily Rate", value: formatCurrency(rental.daily_rate) },
+                      ].map((f: any) => (
                         <div key={f.label}>
-                          <p className="text-[11px] text-gray-500 mb-0.5">{f.label}</p>
+                          <p className="text-[11px] text-gray-400 mb-0.5">{f.label}</p>
                           <div className="text-sm font-semibold text-gray-900">{f.value}</div>
                         </div>
                       ))}
                     </div>
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+                      <div>
+                        <p className="text-[11px] text-gray-400 mb-1">Vehicle</p>
+                        <Link href={`/vehicles/${rental.vehicle_id}`} className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline">{rental.vehicle?.brand} {rental.vehicle?.model}</Link>
+                        <p className="text-xs text-gray-500">{rental.vehicle?.reg_number}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] text-gray-400 mb-1">Customer</p>
+                        <Link href={`/customers/${rental.customer_id}`} className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline">{rental.customer?.name}</Link>
+                        <p className="text-xs text-gray-500">{rental.customer?.phone}</p>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Pricing */}
-                  <div className="bg-white rounded-lg p-5 text-gray-900 border border-gray-200 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Pricing & Payment</p>
-                      <StatusBadge
-                        status={
-                          netBalance < 0 ? "refund_pending" : netBalance > 0 ? "balance_due" : "paid"
-                        }
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Base</p>
-                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(appliedRate)} x {rentalDuration} day(s)</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{formatCurrency(baseAmount)}</p>
+                  {/* Pricing card */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Pricing</p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Amount ({formatCurrency(rental.daily_rate)} &times; {rental.total_days}d)</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(rental.total_amount ?? 0)}</span>
                       </div>
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Collections</p>
-                        <p className="text-sm font-semibold text-gray-900">Advance {formatCurrency(advancePaid)}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">Deposit {formatCurrency(depositApplied)}</p>
-                      </div>
-                      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        <p className="text-[11px] text-gray-500">Final Amount</p>
-                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(finalAmount)}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">After charges & discounts</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2 text-sm">
-                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Settlement Ledger</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Final Amount</span>
-                        <span className="font-semibold text-gray-900">{formatCurrency(finalAmount)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex justify-between">
                         <span className="text-gray-600">Advance Paid</span>
-                        <span className="font-medium text-emerald-700">- {formatCurrency(advancePaid)}</span>
+                        <span className="text-gray-500">- {formatCurrency(rental.advance_paid ?? 0)}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Security Deposit Applied</span>
-                        <span className="font-medium text-emerald-700">- {formatCurrency(depositApplied)}</span>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Deposit</span>
+                        <span className="text-gray-500">- {formatCurrency(rental.deposit ?? 0)}</span>
                       </div>
-                      {(extraCharges > 0 || discount > 0) && (
-                        <div className="pt-1 border-t border-gray-200 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">Extra Charges</span>
-                            <span className="text-gray-700">+ {formatCurrency(extraCharges)}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">Discount</span>
-                            <span className="text-gray-700">- {formatCurrency(discount)}</span>
-                          </div>
+                      {extraCharges > 0 && (
+                        <div className="flex justify-between"><span className="text-gray-500">Extra Charges</span><span className="text-gray-600">+ {formatCurrency(extraCharges)}</span></div>
+                      )}
+                      {discount > 0 && (
+                        <div className="flex justify-between"><span className="text-gray-500">Discount</span><span className="text-gray-600">- {formatCurrency(discount)}</span></div>
+                      )}
+                      {netBalance !== 0 && (
+                        <div className="flex justify-between pt-3 border-t font-semibold">
+                          <span className="text-gray-900">{netBalance > 0 ? "Balance Due" : "Refund Due"}</span>
+                          <span className="text-gray-900">{formatCurrency(netBalance > 0 ? balanceDue : refundDue)}</span>
                         </div>
                       )}
-                      <div className="pt-2 mt-2 border-t border-gray-300 flex items-center justify-between">
-                        <span className="font-semibold text-gray-900">Net Balance</span>
-                        <span className={`font-bold ${netBalance < 0 ? "text-purple-700" : netBalance > 0 ? "text-red-600" : "text-green-700"}`}>
-                          {netBalance < 0 ? `Refund ${formatCurrency(refundDue)}` : netBalance > 0 ? `Due ${formatCurrency(balanceDue)}` : "Settled"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {/* Vehicle summary */}
-                    <div className="bg-white rounded-xl p-4 text-gray-900 border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Car className="w-4 h-4 text-blue-600" />
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vehicle</p>
-                      </div>
-                      <p className="font-semibold text-gray-900">{rental.vehicle?.brand} {rental.vehicle?.model}</p>
-                      <p className="text-sm text-blue-600 font-medium">{rental.vehicle?.reg_number}</p>
-                      <p className="text-xs text-gray-500 mt-1">{rental.vehicle?.type} · {rental.vehicle?.color}</p>
-                      <StatusBadge status={rental.vehicle?.status ?? "available"} className="mt-2" />
-                    </div>
-
-                    {/* Customer summary */}
-                    <div className="bg-white rounded-xl p-4 text-gray-900 border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2 mb-3">
-                        <User className="w-4 h-4 text-blue-600" />
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
-                      </div>
-                      <p className="font-semibold text-gray-900">{rental.customer?.name}</p>
-                      <p className="text-sm text-gray-700">{rental.customer?.phone}</p>
-                      <p className="text-xs text-gray-500 mt-1">NIC: {rental.customer?.nic ?? "—"}</p>
-                      <p className="text-xs text-gray-500">License: {rental.customer?.license_number ?? "—"}</p>
                     </div>
                   </div>
 
                   {/* Exchange History */}
                   {(rental.exchanges ?? []).length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Vehicle Exchanges</p>
+                    <div className="bg-white border border-gray-200 rounded-xl p-4">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Vehicle Exchanges</p>
                       <div className="space-y-2">
                         {[...(rental.exchanges ?? [])]
                           .sort((a, b) => new Date(b.exchange_date).getTime() - new Date(a.exchange_date).getTime())
                           .map((ex, idx) => (
-                            <div key={ex.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3 text-gray-900 border border-gray-200">
-                              {idx === 0 && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">Current</span>}
-                              <span className="text-sm text-gray-500">{ex.old_vehicle?.reg_number}</span>
+                            <div key={ex.id} className="flex items-center gap-3 text-sm text-gray-600">
+                              {idx === 0 && <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">Current</span>}
+                              <span>{ex.old_vehicle?.reg_number}</span>
                               <ArrowLeftRight className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="text-sm font-medium text-gray-900">{ex.new_vehicle?.reg_number}</span>
-                              <span className="text-xs text-gray-500 ml-auto">{formatDate(ex.exchange_date)}</span>
-                              {ex.reason && <span className="text-xs text-gray-500">· {ex.reason}</span>}
+                              <span className="font-medium text-gray-900">{ex.new_vehicle?.reg_number}</span>
+                              <span className="text-xs text-gray-400 ml-auto">{formatDate(ex.exchange_date)}</span>
                             </div>
                           ))}
                       </div>
                     </div>
                   )}
-
-                  {/* Agreement Summary */}
-                  <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-white">
-                    <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Agreement</p>
-                    <p className="text-sm text-gray-700">
-                      Rental <strong>{rental.rental_number}</strong> for <strong>{rental.customer?.name}</strong> —
-                      vehicle <strong>{rental.vehicle?.reg_number}</strong> from <strong>{formatDate(rental.start_date)}</strong> to <strong>{formatDate(rental.end_date)}</strong>.
-                      Total payable: <strong>{formatCurrency(rental.total_amount ?? 0)}</strong>.
-                      Deposit held: <strong>{formatCurrency(rental.deposit)}</strong>.
-                    </p>
-                    <a href={`/agreements/${rental.id}`} target="_blank" rel="noopener"
-                      className="inline-flex items-center gap-1.5 mt-3 text-xs text-purple-600 hover:underline font-medium">
-                      <FileText className="w-3.5 h-3.5" /> View Full Agreement
-                    </a>
-                  </div>
                 </div>
 
-                {/* Right column (Sidebar) */}
-                <div className="col-span-12 md:col-span-4 space-y-4">
+                {/* Right column */}
+                <div className="md:col-span-4 space-y-4">
                   <RentalActionsCard rental={rental} availableVehicles={availableVehicles} />
 
-                  <div className="bg-white rounded-lg p-4 text-gray-900 border border-gray-200 shadow-sm">
-                    <p className="text-xs text-gray-500 font-medium mb-3">Record Payment</p>
-                    <div className="space-y-2">
-                      <input
-                        placeholder="Amount (LKR)"
-                        className="form-input bg-white text-gray-900 border border-gray-300"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        inputMode="decimal"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                      />
-                      <select
-                        className="form-select bg-white text-gray-900 border border-gray-300"
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                      >
-                        <option>Cash</option>
-                        <option>Card</option>
-                        <option>Bank Transfer</option>
-                      </select>
-                      <textarea
-                        className="form-input bg-white text-gray-900 resize-none border border-gray-300"
-                        rows={2}
-                        placeholder="Payment notes (optional)"
-                        value={paymentNotes}
-                        onChange={(e) => setPaymentNotes(e.target.value)}
-                      />
-                      <button onClick={handleRecordPayment} className="w-full bg-blue-600 text-white rounded py-2 hover:bg-blue-700">
-                        Record Payment
-                      </button>
-                    </div>
-                  </div>
-
-                  {rental.payment_status === "paid" && (
-                    <div className="bg-green-50 border-l-4 border-green-500 rounded-md p-3 text-green-900">
-                      <p className="font-medium">Payment Settled</p>
-                      <p className="text-sm text-green-700">Full payment received on {formatDate((rental as any).last_payment_date ?? rental.actual_return_date ?? rental.start_date)}</p>
-                    </div>
-                  )}
-
-                  <div className="bg-white rounded-lg p-4 text-gray-900 border border-gray-200 shadow-sm">
-                    <p className="text-xs text-gray-500 font-medium mb-2">Info</p>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li className="flex items-start justify-between gap-3">
-                        <span>Rental ID:</span>
-                        <span className="text-gray-900 text-right break-all">{rental.id}</span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Status:</span>
-                        <StatusBadge status={rental.status} />
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Payment:</span>
-                        <StatusBadge status={rental.payment_status} />
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Created At:</span>
-                        <span className="text-gray-900 text-right">{formatDate(rental.created_at ?? rental.start_date)}</span>
-                      </li>
-                      <li className="flex items-center justify-between gap-3">
-                        <span>Last Updated:</span>
-                        <span className="text-gray-900 text-right">{formatDate(rental.updated_at ?? rental.start_date)}</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-4 text-gray-900 border border-gray-200 shadow-sm space-y-3">
+                  <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs text-gray-500 font-medium">Signed Agreement</p>
-                      <label htmlFor={agreementFileInputId} className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 cursor-pointer ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
+                      <label htmlFor={agreementFileInputId} className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-xs font-medium hover:bg-gray-50 cursor-pointer ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
                         {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                         Upload PDF
                       </label>
@@ -606,57 +375,78 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
                           if (!file) return;
                           const lowerName = file.name.toLowerCase();
                           const isPdf = file.type === "application/pdf" || lowerName.endsWith(".pdf");
-                          if (!isPdf) {
-                            setError("Only PDF files are allowed.");
-                            return;
-                          }
-                          if (file.size > 5 * 1024 * 1024) {
-                            setError("File size must be 5MB or less.");
-                            return;
-                          }
+                          if (!isPdf) { setError("Only PDF files are allowed."); return; }
+                          if (file.size > 5 * 1024 * 1024) { setError("File size must be 5MB or less."); return; }
                           await handleAgreementUpload(file);
                         }}
                       />
                     </div>
-                    <p className="text-[11px] text-gray-500">Only PDF files are allowed. Maximum file size: 5MB.</p>
+                    <p className="text-[11px] text-gray-500">PDF files only, max 5MB.</p>
                     {error && <p className="text-xs text-red-600">{error}</p>}
                     {agreementUrl ? (
-                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-5 h-5 text-red-500" />
-                          </div>
+                          <FileText className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 text-sm">Signed Agreement PDF</p>
-                            <p className="text-xs text-gray-500 truncate">{agreementPath || "Uploaded file"}</p>
+                            <p className="text-xs text-gray-400 truncate">{agreementPath || "Uploaded file"}</p>
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              openAgreementViewer();
-                            }}
-                            className="w-full inline-flex items-center justify-center rounded py-2 bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium"
-                          >
+                        <div className="flex gap-2">
+                          <a href="#" onClick={(e) => { e.preventDefault(); setDocViewer({ open: true, url: agreementUrl, title: 'Signed Agreement PDF' }); }}
+                            className="flex-1 text-center rounded py-1.5 bg-gray-900 text-white text-sm font-medium hover:bg-gray-800">
                             View PDF
                           </a>
-                          <button
-                            type="button"
-                            onClick={() => handleAgreementDelete()}
-                            className="w-full inline-flex items-center justify-center rounded py-2 border border-red-300 text-red-600 hover:bg-red-50 text-sm font-medium"
-                          >
-                            Delete PDF
+                          <button type="button" onClick={() => handleAgreementDelete()}
+                            className="rounded py-1.5 px-4 border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50">
+                            Delete
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500">
+                      <div className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-400">
                         No signed agreement uploaded yet.
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ── VEHICLE TAB ── */}
+          <TabsContent value="vehicle" className="mt-0">
+            <div className="p-5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Rented Vehicle</p>
+              <div className="bg-white border border-gray-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                    <Car className="w-5 h-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <Link href={`/vehicles/${rental.vehicle_id}`} className="font-semibold text-gray-900 hover:text-blue-600 hover:underline">
+                      {rental.vehicle?.brand} {rental.vehicle?.model}
+                    </Link>
+                    <p className="text-xs text-gray-500">{rental.vehicle?.reg_number}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[
+                    { label: "Registration", value: rental.vehicle?.reg_number ?? "—" },
+                    { label: "Brand", value: rental.vehicle?.brand ?? "—" },
+                    { label: "Model", value: rental.vehicle?.model ?? "—" },
+                    { label: "Year", value: rental.vehicle?.year?.toString() ?? "—" },
+                    { label: "Type", value: rental.vehicle?.type ?? "—" },
+                    { label: "Fuel Type", value: rental.vehicle?.fuel_type ?? "—" },
+                    { label: "Transmission", value: rental.vehicle?.transmission ?? "—" },
+                    { label: "Color", value: rental.vehicle?.color ?? "—" },
+                    { label: "Status", value: <StatusBadge status={rental.vehicle?.status ?? "available"} /> },
+                  ].map((f: any) => (
+                    <div key={f.label}>
+                      <p className="text-xs text-gray-400 mb-0.5">{f.label}</p>
+                      <div className="text-sm font-medium text-gray-900">{f.value}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -767,31 +557,58 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
 
           {/* ── GUARANTOR TAB ── */}
           <TabsContent value="guarantor" className="mt-0">
-            <div className="p-5">
-              {rental.guarantor ? (
-                <div className="max-w-lg space-y-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Guarantor Details</p>
-                  <div className="bg-gray-50 rounded-xl p-5 space-y-4">
-                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-gray-200">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <Shield className="w-5 h-5 text-blue-500" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{rental.guarantor.name}</p>
-                          <p className="text-xs text-gray-500">{rental.guarantor.relationship ?? "Guarantor"}</p>
-                        </div>
+            <div className="p-5 space-y-5">
+              {/* Customer — primary focus */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Customer</p>
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <User className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <Link href={`/customers/${rental.customer_id}`} className="font-semibold text-gray-900 hover:text-blue-600 hover:underline">{rental.customer?.name}</Link>
+                      <p className="text-xs text-gray-500">{rental.customer?.phone}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[
+                      { label: "NIC", value: rental.customer?.nic ?? "—" },
+                      { label: "Email", value: rental.customer?.email ?? "—" },
+                      { label: "Phone", value: rental.customer?.phone ?? "—" },
+                      { label: "Alt Phone", value: rental.customer?.phone2 ?? "—" },
+                      { label: "Address", value: formatAddress(rental.customer) },
+                      { label: "License No", value: rental.customer?.license_number ?? "—" },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <p className="text-xs text-gray-400 mb-0.5">{f.label}</p>
+                        <p className="text-sm font-medium text-gray-900">{f.value}</p>
                       </div>
-                      <a href="/guarantors" className="text-xs text-blue-600 hover:underline font-medium">View All Guarantors →</a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Guarantor — secondary */}
+              {rental.guarantor ? (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Guarantor</p>
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-gray-600" />
+                      </div>
+                      <div>
+                        <Link href={`/guarantors/${rental.guarantor_id}`} className="font-semibold text-gray-900 hover:text-blue-600 hover:underline">{rental.guarantor.name}</Link>
+                        <p className="text-xs text-gray-500">{rental.guarantor.relationship ?? "Guarantor"}</p>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       {[
                         { label: "NIC", value: rental.guarantor.nic ?? "—" },
                         { label: "Phone", value: rental.guarantor.phone ?? "—" },
-                        { label: "Alt. Phone", value: rental.guarantor.phone2 ?? "—" },
-                        { label: "Address", value: formatAddress(rental.guarantor) },
+                        { label: "Alt Phone", value: rental.guarantor.phone2 ?? "—" },
                         { label: "Relationship", value: rental.guarantor.relationship ?? "—" },
-                        { label: "Since", value: formatDate(rental.guarantor.created_at) },
                       ].map(f => (
                         <div key={f.label}>
                           <p className="text-xs text-gray-400 mb-0.5">{f.label}</p>
@@ -799,29 +616,15 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
                         </div>
                       ))}
                     </div>
-                    {rental.guarantor.notes && (
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">Notes</p>
-                        <p className="text-sm text-gray-600">{rental.guarantor.notes}</p>
-                      </div>
-                    )}
                   </div>
-                  {/* Customer link */}
-                  {rental.customer && (
-                    <div className="bg-blue-50/40 border border-blue-100 rounded-xl px-4 py-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-gray-400">Guaranteed for Customer</p>
-                        <p className="font-semibold text-gray-900">{rental.customer.name}</p>
-                        <p className="text-xs text-gray-500">{rental.customer.phone}</p>
-                      </div>
-                      <a href={`/customers/${rental.customer_id}`} className="btn-secondary text-xs">View Customer →</a>
-                    </div>
-                  )}
                 </div>
               ) : (
-                <div className="flex flex-col items-center py-16 text-gray-300">
-                  <Shield className="w-10 h-10 mb-3" />
-                  <p className="text-sm text-gray-400">No guarantor assigned to this rental.</p>
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Guarantor</p>
+                  <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+                    <Shield className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">No guarantor assigned to this rental.</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -998,44 +801,7 @@ export default function RentalDetailClient({ rental: initial, availableVehicles 
         onConfirm={async () => { if (pendingAction) await pendingAction(); }}
       />
 
-      {showAgreementViewer && agreementUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-5xl h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Signed Agreement PDF</p>
-                <p className="text-xs text-gray-500 truncate max-w-[60vw]">{agreementPath || agreementUrl}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={agreementUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-100"
-                >
-                  Open in new tab
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setShowAgreementViewer(false)}
-                  className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-gray-100 overflow-auto p-4">
-              {agreementPreviewLoading && !agreementPreviewUrl ? (
-                <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
-                  Loading PDF preview...
-                </div>
-              ) : (
-                <div ref={agreementViewerContainerRef} className="mx-auto max-w-4xl" />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <DocumentViewer open={docViewer.open} onOpenChange={(o) => setDocViewer({ ...docViewer, open: o })} url={docViewer.url} title={docViewer.title} />
     </div>
   );
 }

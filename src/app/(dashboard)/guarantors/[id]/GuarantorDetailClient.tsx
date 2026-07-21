@@ -13,20 +13,21 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import StatusBadge from "@/components/shared/StatusBadge";
 import AddressFields from "@/components/shared/AddressFields";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 
-function ImageCard({ label, url }: { label: string; url?: string | null }) {
+function ImageCard({ label, url, onClick }: { label: string; url?: string | null; onClick?: () => void }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-gray-400 font-medium">{label}</p>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="block group">
+        <button onClick={onClick} className="block group w-full text-left">
           <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
             <img src={url} alt={label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-              <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded transition-opacity">View Full</span>
+              <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded transition-opacity">View</span>
             </div>
           </div>
-        </a>
+        </button>
       ) : (
         <div className="w-full aspect-[4/3] rounded-xl border border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1.5">
           <ImageIcon className="w-6 h-6 text-gray-300" />
@@ -51,6 +52,7 @@ export default function GuarantorDetailClient({
   const [deleteModal, setDeleteModal] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [docViewer, setDocViewer] = useState<{ open: boolean; url: string; title: string }>({ open: false, url: '', title: '' });
 
   const [rentalOrder, setRentalOrder] = useState<"newest" | "oldest">("newest");
   const [rentalVisible, setRentalVisible] = useState(10);
@@ -171,10 +173,10 @@ export default function GuarantorDetailClient({
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">Documents & Photos</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <ImageCard label="NIC Front" url={guarantor.nic_front_url} />
-                  <ImageCard label="NIC Back" url={guarantor.nic_back_url} />
-                  <ImageCard label="Photo" url={guarantor.photo_url} />
-                  <ImageCard label="Utility Bill" url={guarantor.utility_bill_url} />
+                  <ImageCard label="NIC Front" url={guarantor.nic_front_url} onClick={() => setDocViewer({ open: true, url: guarantor.nic_front_url!, title: 'NIC Front' })} />
+                  <ImageCard label="NIC Back" url={guarantor.nic_back_url} onClick={() => setDocViewer({ open: true, url: guarantor.nic_back_url!, title: 'NIC Back' })} />
+                  <ImageCard label="Photo" url={guarantor.photo_url} onClick={() => setDocViewer({ open: true, url: guarantor.photo_url!, title: 'Photo' })} />
+                  <ImageCard label="Utility Bill" url={guarantor.utility_bill_url} onClick={() => setDocViewer({ open: true, url: guarantor.utility_bill_url!, title: 'Utility Bill' })} />
                 </div>
               </div>
             </div>
@@ -327,7 +329,10 @@ export default function GuarantorDetailClient({
         title="Delete Guarantor"
         description="Remove this guarantor record."
         onConfirm={handleDelete}
+        variant="danger"
       />
+
+      <DocumentViewer open={docViewer.open} onOpenChange={(o) => setDocViewer({ ...docViewer, open: o })} url={docViewer.url} title={docViewer.title} />
     </div>
   );
 }

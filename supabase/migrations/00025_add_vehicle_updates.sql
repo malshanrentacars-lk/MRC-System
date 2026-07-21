@@ -9,3 +9,5 @@ CREATE TABLE IF NOT EXISTS vehicle_updates (
 );
 
 CREATE INDEX IF NOT EXISTS idx_vehicle_updates_vehicle_id ON vehicle_updates(vehicle_id);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON vehicle_updates TO anon, authenticated, service_role;

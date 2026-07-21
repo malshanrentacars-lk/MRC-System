@@ -8,7 +8,7 @@ import { createVehicle } from "@/app/actions/vehicles";
 import { Supplier, Company } from "@/types";
 import {
   BRANDS, COLORS, FUEL_TYPES, VEHICLE_TYPES, TRANSMISSION_TYPES, PAYMENT_TYPES, YEARS,
-  getModels, calcTiersFromMonthly,
+  getModels, calcTiersFromMonthly, TIER_LABELS,
 } from "@/lib/vehicleData";
 import FileUploader from "@/components/shared/FileUploader";
 
@@ -306,7 +306,7 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
           {source === "Supplier" && (
             <>
               <div>
-                <label className="form-label">Monthly Cost (Rs.) <span className="text-red-500">*</span></label>
+                <label className="form-label">Supplier Payment (Rs.) <span className="text-red-500">*</span></label>
                 <input name="monthly_cost" type="number" min="0" step="0.01" placeholder="e.g. 30000" required className="form-input" />
               </div>
               <div>
@@ -528,9 +528,9 @@ export default function NewVehicleClient({ suppliers, companies }: { suppliers: 
               <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-gray-500 mb-0.5">{tier.label}</p>
-                  <p className="text-xs text-gray-400">
-                    Days {tier.days_from}{tier.days_to ? `–${tier.days_to}` : "+"}
-                  </p>
+                  {TIER_LABELS[i] !== tier.label && (
+                    <p className="text-xs text-gray-400">{tier.days_from}–{tier.days_to ?? '+'} days</p>
+                  )}
                 </div>
                 {editingTier === i ? (
                   <div className="flex items-center gap-2">
